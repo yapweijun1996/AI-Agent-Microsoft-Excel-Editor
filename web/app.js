@@ -31,6 +31,19 @@ const AppState = {
 
 function log(...args){ if(DEBUG) console.log('[DEBUG]', ...args); }
 
+// Debounce utility function
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 // IndexedDB wrapper
 const db = {
   name: 'ExcelAIDB',
@@ -548,35 +561,48 @@ window.deleteSheet = function(sheetName){
   showToast(`Deleted sheet "${sheetName}"`, 'success');
 };
 
-// Spreadsheet render
+// Spreadsheet render with enhanced virtual scrolling
 function renderSpreadsheetTable(){
   const container = document.getElementById('spreadsheet');
   const ws = getWorksheet();
   const ref = ws['!ref'] || 'A1:C20';
   const range = XLSX.utils.decode_range(ref);
 
+  // Virtual scrolling parameters
   const rowHeight = 32;
-  const visibleRows = Math.ceil(container.clientHeight / rowHeight);
-  const firstRow = Math.floor(container.scrollTop / rowHeight);
+  const colWidth = 100;
+  const visibleRows = Math.ceil(container.clientHeight / rowHeight) + 5; // Buffer rows
+  const visibleCols = Math.ceil(container.clientWidth / colWidth) + 10; // Buffer columns
+  
+  const firstRow = Math.max(0, Math.floor(container.scrollTop / rowHeight) - 2); // Buffer
   const lastRow = Math.min(range.e.r, firstRow + visibleRows);
+  
+  const firstCol = Math.max(range.s.c, Math.floor(container.scrollLeft / colWidth) - 5); // Buffer
+  const lastCol = Math.min(range.e.c, firstCol + visibleCols);
 
   let html = '';
-  html += `<div style="height: ${range.e.r * rowHeight}px;">`; // Spacer for scrollbar
-  html += '<table class="ai-grid min-w-full border-collapse border border-gray-300 bg-white" style="transform: translateY(' + (firstRow * rowHeight) + 'px)">';
+  // Create scrollable area
+  html += `<div style="height: ${(range.e.r + 1) * rowHeight}px; width: ${(range.e.c + 1) * colWidth}px; position: relative;">`;
+  html += `<table class="ai-grid border-collapse border border-gray-300 bg-white" style="position: absolute; transform: translate(${firstCol * colWidth}px, ${firstRow * rowHeight}px);">`;
   html += '<thead class="bg-gray-50"><tr>';
-  html += '<th class="w-12 p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500">#</th>';
-  for(let c=range.s.c; c<=range.e.c; c++){
+  html += '<th class="w-12 p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500 sticky left-0 z-10">#</th>';
+  
+  // Render visible column headers
+  for(let c=firstCol; c<=lastCol; c++){
     const colLetter = XLSX.utils.encode_col(c);
     html += `<th class="col-header cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500 min-w-[100px]" data-col="${colLetter}" data-col-index="${c}">${colLetter}</th>`;
   }
   html += '</tr></thead><tbody>';
+  
+  // Render visible rows and columns
   for(let r=firstRow; r<=lastRow; r++){
     html += '<tr class="hover:bg-gray-50">';
-    html += `<td class="row-index cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500" data-row="${r+1}">${r+1}</td>`;
-    for(let c=range.s.c; c<=range.e.c; c++){
+    html += `<td class="row-index cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500 sticky left-0 z-10" data-row="${r+1}">${r+1}</td>`;
+    
+    for(let c=firstCol; c<=lastCol; c++){
       const addr = XLSX.utils.encode_cell({r, c});
       const cell = ws[addr];
-      const value = cell ? (cell.f ? FormulaEngine.execute(cell.f, { ...AppState.wb, activeSheet: AppState.activeSheet }) : cell.v) : '';
+      const value = cell ? (cell.f ? getFormulaEngine(AppState.wb, AppState.activeSheet).execute('=' + cell.f, AppState.wb, AppState.activeSheet) : cell.v) : '';
       const styles = cell && cell.s ? cell.s : {};
       const styleStr = `
         font-weight: ${styles.bold ? 'bold' : 'normal'};
@@ -586,7 +612,7 @@ function renderSpreadsheetTable(){
       `;
       const hasComment = cell && cell.c && cell.c.t;
       html += `
-        <td class="p-1 border border-gray-300 hover:bg-blue-50 focus-within:bg-blue-50 min-h-[32px] relative" data-cell="${addr}" data-col-index="${c}">
+        <td class="p-1 border border-gray-300 hover:bg-blue-50 focus-within:bg-blue-50 min-h-[32px] relative" data-cell="${addr}" data-col-index="${c}" style="min-width: 100px;">
           ${hasComment ? '<div class="absolute top-0 right-0 w-0 h-0 border-solid border-t-8 border-l-8 border-t-red-500 border-l-transparent"></div>' : ''}
           <input type="text" value="${escapeHtml(value)}" style="${styleStr}" class="cell-input w-full h-full px-2 py-1 bg-transparent border-none outline-none focus:bg-white focus:shadow-sm focus:ring-1 focus:ring-blue-400 rounded" onfocus="onCellFocus('${addr}', this)" onblur="updateCell('${addr}', this.value)" onkeypress="handleCellKeypress(event)" />
         </td>`;
@@ -637,7 +663,7 @@ window.updateCell = function(addr, value){
   }
 
   if (value.startsWith('=')) {
-    ws[addr] = { t: 's', f: value };
+    ws[addr] = { t: 'f', f: value.substring(1) };
     // The value 'v' will be calculated on render.
   } else {
     const parsed = parseCellValue(value);
@@ -1740,80 +1766,6 @@ IMPORTANT:
                     throw new Error('Executor failed after multiple retries.');
                 }
     
-    async function runExecutorWithRetry(task, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const result = await runExecutor(task);
-                if (result) {
-                    return result;
-                }
-                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
-            } catch (error) {
-                console.error(`Executor attempt ${i + 1} threw an error:`, error);
-            }
-        }
-        throw new Error('Executor failed after multiple retries.');
-    }
-    
-    async function runExecutorWithRetry(task, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const result = await runExecutor(task);
-                if (result) {
-                    return result;
-                }
-                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
-            } catch (error) {
-                console.error(`Executor attempt ${i + 1} threw an error:`, error);
-            }
-        }
-        throw new Error('Executor failed after multiple retries.');
-    }
-    
-    async function runExecutorWithRetry(task, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const result = await runExecutor(task);
-                if (result) {
-                    return result;
-                }
-                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
-            } catch (error) {
-                console.error(`Executor attempt ${i + 1} threw an error:`, error);
-            }
-        }
-        throw new Error('Executor failed after multiple retries.');
-    }
-    
-    async function runExecutorWithRetry(task, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const result = await runExecutor(task);
-                if (result) {
-                    return result;
-                }
-                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
-            } catch (error) {
-                console.error(`Executor attempt ${i + 1} threw an error:`, error);
-            }
-        }
-        throw new Error('Executor failed after multiple retries.');
-    }
-    
-    async function runExecutorWithRetry(task, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const result = await runExecutor(task);
-                if (result) {
-                    return result;
-                }
-                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
-            } catch (error) {
-                console.error(`Executor attempt ${i + 1} threw an error:`, error);
-            }
-        }
-        throw new Error('Executor failed after multiple retries.');
-    }
 
 async function runExecutor(task){
   const provider = pickProvider();
@@ -2587,7 +2539,7 @@ function bindUI(){
   document.getElementById('sort-btn').addEventListener('click', showSortModal);
   document.getElementById('chart-btn').addEventListener('click', showChartModal);
   document.getElementById('comment-btn').addEventListener('click', showCommentModal);
-  document.getElementById('spreadsheet').addEventListener('scroll', renderSpreadsheetTable);
+  document.getElementById('spreadsheet').addEventListener('scroll', debounce(renderSpreadsheetTable, 16));
 }
 
 function showSortModal() {
@@ -2909,6 +2861,35 @@ function showWelcomeModal() {
     });
 }
 
+// Cell clipboard functions
+function cutCell(cellRef) {
+  copyCell(cellRef);
+  const ws = getWorksheet();
+  delete ws[cellRef];
+  renderSpreadsheetTable();
+  persistSnapshot();
+}
+
+function copyCell(cellRef) {
+  const ws = getWorksheet();
+  AppState.clipboard = {
+    v: ws[cellRef]?.v,
+    f: ws[cellRef]?.f,
+    t: ws[cellRef]?.t,
+    s: ws[cellRef]?.s
+  };
+}
+
+function pasteCell(cellRef) {
+  if (!AppState.clipboard) {
+    return;
+  }
+  const ws = getWorksheet();
+  ws[cellRef] = { ...AppState.clipboard };
+  renderSpreadsheetTable();
+  persistSnapshot();
+}
+
 function initRibbonTabs() {
     const tabs = document.querySelectorAll('.ribbon-tab');
     const ribbonContent = document.getElementById('ribbon-content');
@@ -2929,32 +2910,6 @@ function initRibbonTabs() {
             if (contentToShow) {
                 contentToShow.style.display = 'flex';
             }
-          });
-          
-          function cutCell(cellRef) {
-            copyCell(cellRef);
-            const ws = getWorksheet();
-            delete ws[cellRef];
-            renderSpreadsheetTable();
-            persistSnapshot();
-          }
-          
-          
-          
-          
-          function copyCell(cellRef) {
-            const ws = getWorksheet();
-            AppState.clipboard = ws[cellRef];
-          }
-          
-          function pasteCell(cellRef) {
-            if (!AppState.clipboard) {
-              return;
-            }
-            const ws = getWorksheet();
-            ws[cellRef] = AppState.clipboard;
-            renderSpreadsheetTable();
-            persistSnapshot();
-          }
+        });
     });
 }

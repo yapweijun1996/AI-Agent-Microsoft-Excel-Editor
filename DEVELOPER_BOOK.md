@@ -1,4 +1,4 @@
-# Developer Book — Web Excel Editor with Multi-Agent AI (OpenAI & Gemini)
+# Developer Book — Web Excel Editor with Multi-Agent AI [OpenAI & Gemini]
 
 ## Overview
 
