@@ -1,0 +1,506 @@
+/* AI Excel Editor - Enhanced Styles
+   Modern web-based Excel editor with multi-agent AI automation
+   This file complements TailwindCSS utility classes with enhanced styling.
+   Reference: Developer Book
+*/
+
+:root {
+  --divider-width: 4px;
+  --primary-blue: #3b82f6;
+  --primary-blue-hover: #2563eb;
+  --success-green: #10b981;
+  --warning-yellow: #f59e0b;
+  --error-red: #ef4444;
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Layout helpers */
+.main-container {
+  width: 100%;
+  height: calc(100vh - 3rem);
+}
+
+/* Spreadsheet container */
+.spreadsheet-container {
+  overflow: auto;
+  border-radius: 0.25rem;
+  background: #ffffff;
+}
+
+/* Improve table rendering when Tailwind isn't enough (fallbacks) */
+table.ai-grid {
+  border-collapse: collapse;
+  width: 100%;
+  background: #ffffff;
+}
+
+.ai-grid th,
+.ai-grid td {
+  border: 1px solid #e5e7eb; /* gray-200 */
+}
+
+.ai-grid thead th {
+  background: #f9fafb; /* gray-50 */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Row index column */
+.ai-grid .row-index {
+  background: #f3f4f6; /* gray-100 */
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+/* Spreadsheet cell input */
+.cell-input {
+  width: 100%;
+  height: 100%;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.cell-input:focus {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.6); /* blue-500 ring */
+  border-radius: 0.25rem;
+}
+
+/* Divider */
+#divider {
+  width: 1px;
+  background: #d1d5db; /* gray-300 */
+  cursor: col-resize;
+  transition: background 120ms ease-in-out;
+}
+
+#divider:hover {
+  background: #60a5fa; /* blue-400 */
+}
+
+/* File input (hidden) */
+#import-xlsx-input {
+  display: none;
+}
+
+/* Modal base fallbacks (JS injects Tailwind classes, these are safe defaults) */
+#modal-container .modal {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Toast base fallbacks */
+#toast-container .toast {
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: #ffffff;
+  background: #3b82f6; /* blue-500 */
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1),
+              0 4px 6px -2px rgba(0,0,0,0.05);
+  transform: translateX(100%);
+  transition: transform 300ms ease-in-out;
+}
+
+/* Utility helpers */
+.hidden {
+  display: none !important;
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+/* Scrollbars (WebKit) */
+.spreadsheet-container::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+
+.spreadsheet-container::-webkit-scrollbar-thumb {
+  background: #d1d5db; /* gray-300 */
+  border-radius: 9999px;
+}
+
+.spreadsheet-container::-webkit-scrollbar-track {
+  background: #f3f4f6; /* gray-100 */
+}
+
+/* Mobile-friendly improvements */
+@media (max-width: 768px) {
+  /* Header adjustments */
+  .h-12 {
+    padding: 0.5rem;
+  }
+  
+  .h-12 .flex {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .h-12 button {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  .h-12 h1 {
+    font-size: 1rem;
+  }
+
+  /* Main container mobile layout */
+  .main-container {
+    height: auto;
+    min-height: calc(100vh - 3rem);
+    flex-direction: column;
+  }
+
+  #divider {
+    display: none;
+  }
+
+  /* Excel panel mobile */
+  #excel-panel {
+    flex: 1;
+    min-width: 0;
+    height: 60vh;
+    min-height: 400px;
+  }
+
+  /* Sheet tabs mobile */
+  .sheet-tabs-container {
+    padding: 0.5rem;
+    overflow-x: auto;
+  }
+  
+  .sheet-tab {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  /* Chat panel mobile */
+  #chat-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-left: none !important;
+    border-top: 1px solid #e5e7eb; /* gray-200 */
+    height: 40vh;
+    min-height: 300px;
+  }
+
+  /* Spreadsheet mobile */
+  .spreadsheet-container {
+    font-size: 0.75rem;
+  }
+  
+  .ai-grid th,
+  .ai-grid td {
+    min-width: 80px;
+    padding: 0.25rem;
+  }
+  
+  .cell-input {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.25rem;
+  }
+
+  /* Task panel mobile */
+  .border-t.border-gray-200 {
+    max-height: 150px;
+  }
+
+  /* Modal mobile */
+  .fixed.inset-0 .inline-block {
+    width: calc(100% - 2rem);
+    margin: 1rem;
+    max-width: none;
+  }
+  
+  /* Toast mobile */
+  #toast-container {
+    left: 1rem;
+    right: 1rem;
+    top: auto;
+    bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Very small screens */
+  .h-12 {
+    height: auto;
+    min-height: 3rem;
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .h-12 .flex:first-child {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .h-12 .flex:last-child {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  /* Very compact buttons */
+  .h-12 button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.625rem;
+  }
+  
+  /* Compact sheet tabs */
+  .sheet-tab {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.625rem;
+  }
+  
+  /* Smaller spreadsheet cells */
+  .ai-grid th,
+  .ai-grid td {
+    min-width: 60px;
+    padding: 0.125rem;
+  }
+}
+
+/* Sheet tabs */
+.sheet-tab {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6; /* gray-100 */
+  border: 1px solid #d1d5db; /* gray-300 */
+  border-bottom: none;
+  border-radius: 0.375rem 0.375rem 0 0;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151; /* gray-700 */
+  position: relative;
+}
+
+.sheet-tab:hover {
+  background: #e5e7eb; /* gray-200 */
+}
+
+.sheet-tab.active {
+  background: #ffffff;
+  border-color: #d1d5db; /* gray-300 */
+  border-bottom: 1px solid #ffffff;
+  margin-bottom: -1px;
+  z-index: 1;
+  color: #111827; /* gray-900 */
+}
+
+.sheet-tab-close {
+  margin-left: 0.5rem;
+  color: #9ca3af; /* gray-400 */
+  font-size: 0.75rem;
+  padding: 0.125rem;
+  border-radius: 0.125rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.sheet-tab-close:hover {
+  background: #fef2f2; /* red-50 */
+  color: #ef4444; /* red-500 */
+}
+
+/* Enhanced animations and transitions */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.animate-pulse-soft {
+  animation: pulse 2s infinite;
+}
+
+/* Enhanced header styling */
+.h-12 {
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+}
+
+/* Enhanced button styling */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Excel-style spreadsheet grid */
+.ai-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.ai-grid th {
+  background: #f0f0f0;
+  border: 1px solid #d0d0d0;
+  font-weight: 400;
+  color: #333;
+  text-align: center;
+  padding: 4px 6px;
+  font-size: 10px;
+  min-width: 64px;
+  height: 20px;
+}
+
+.ai-grid td {
+  border: 1px solid #d0d0d0;
+  border-top: none;
+  border-left: none;
+  background: white;
+  padding: 0;
+  height: 20px;
+  min-width: 64px;
+}
+
+.ai-grid td:first-child {
+  background: #f0f0f0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 400;
+  color: #333;
+  border-left: 1px solid #d0d0d0;
+}
+
+.ai-grid tr:first-child th:first-child {
+  background: #e0e0e0;
+  border: 1px solid #d0d0d0;
+}
+
+.ai-grid tbody tr:hover {
+  background-color: rgba(0, 100, 200, 0.05);
+}
+
+.ai-grid td:hover:not(:first-child) {
+  background-color: rgba(0, 100, 200, 0.1);
+}
+
+.cell-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  height: 20px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-family: inherit;
+  color: #333;
+}
+
+.cell-input:focus {
+  background: white;
+  border: 2px solid #0078d4;
+  outline: none;
+  box-shadow: 0 0 0 1px #0078d4;
+}
+
+/* Excel-style sheet tabs */
+.sheet-tab {
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-bottom: none;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: #333;
+  cursor: pointer;
+  margin-right: -1px;
+}
+
+.sheet-tab.active {
+  background: white;
+  border-bottom: 2px solid white;
+  font-weight: 500;
+  z-index: 1;
+  position: relative;
+}
+
+.sheet-tab:hover:not(.active) {
+  background: #f5f5f5;
+}
+
+/* Excel-style formula bar */
+#formula-bar {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+}
+
+#cell-reference {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Enhanced chat styling */
+#chat-messages {
+  scroll-behavior: smooth;
+}
+
+/* Task item enhancements */
+.task-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.task-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Loading states */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Debug helpers */
+.debug-outline *:focus {
+  outline: 1px dashed #f59e0b !important; /* amber-500 */
+  outline-offset: 1px;
+}

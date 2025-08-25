@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Advanced web-based Excel editor with multi-agent AI automation using OpenAI and Gemini. Create, edit, and automate spreadsheets directly in your browser.">
+  <meta name="keywords" content="Excel editor, AI automation, spreadsheet, OpenAI, Gemini, web application, multi-agent system">
+  <meta name="author" content="AI Excel Editor Team">
+  <title>AI Excel Editor - Multi-Agent Spreadsheet Automation</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    // Suppress Tailwind CDN development warning for this demo
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            excel: {
+              green: '#217346',
+              blue: '#0078d4'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body class="h-screen bg-gray-50">
+  <!-- Excel-style Title Bar -->
+  <div class="h-8 bg-green-600 text-white flex items-center px-3 text-sm font-medium">
+    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H3A2,2 0 0,1 1,16V4A2,2 0 0,1 3,2H21M5,14H19V12H5V14M5,10H19V8H5V10M5,6H19V4H5V6Z"/>
+    </svg>
+    AI Excel - Book1
+  </div>
+  
+  <!-- Excel-style Ribbon -->
+  <div class="bg-gray-50 border-b border-gray-300">
+    <!-- File Menu Bar -->
+    <div class="h-6 bg-white border-b border-gray-200 px-2 flex items-center space-x-4 text-xs">
+      <button class="hover:bg-blue-50 px-2 py-1 rounded">File</button>
+      <button class="hover:bg-blue-50 px-2 py-1 rounded">Home</button>
+      <button class="hover:bg-blue-50 px-2 py-1 rounded">Insert</button>
+      <button class="hover:bg-blue-50 px-2 py-1 rounded">Formulas</button>
+      <button class="hover:bg-blue-50 px-2 py-1 rounded">Data</button>
+      <button class="hover:bg-blue-50 px-2 py-1 rounded">Review</button>
+      <button id="ai-tab" class="hover:bg-blue-50 px-2 py-1 rounded bg-blue-100">AI Assistant</button>
+    </div>
+    
+    <!-- Ribbon Content -->
+    <div id="ribbon-content" class="p-2 bg-gray-50">
+      <!-- AI Assistant Ribbon (Default) -->
+      <div id="ai-ribbon" class="flex items-center space-x-4">
+        <!-- AI Setup -->
+        <div class="flex flex-col items-center space-y-1 px-2">
+          <div class="flex space-x-1">
+            <button id="openai-key-btn" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">OpenAI</button>
+            <button id="gemini-key-btn" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">Gemini</button>
+          </div>
+          <span class="text-xs text-gray-500">API Keys</span>
+        </div>
+        
+        <div class="h-10 w-px bg-gray-300"></div>
+        
+        <!-- AI Model -->
+        <div class="flex flex-col items-center space-y-1">
+          <select id="model-select" class="text-xs border border-gray-300 rounded px-2 py-1 bg-white">
+            <option value="auto">Auto</option>
+            <option value="openai:gpt-4o">GPT-4o</option>
+            <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
+            <option value="gemini:gemini-2.5-flash">Gemini Flash</option>
+          </select>
+          <span class="text-xs text-gray-500">Model</span>
+        </div>
+        
+        <div class="h-10 w-px bg-gray-300"></div>
+        
+        <!-- Quick Actions -->
+        <div class="flex flex-col items-center space-y-1">
+          <div class="flex space-x-1">
+            <button id="execute-all-tasks" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">Execute All</button>
+            <label class="flex items-center space-x-1 text-xs">
+              <input id="dry-run-toggle" type="checkbox" class="rounded border-gray-300">
+              <span>Dry Run</span>
+            </label>
+          </div>
+          <span class="text-xs text-gray-500">Execution</span>
+        </div>
+        
+        <div class="h-10 w-px bg-gray-300"></div>
+        
+        <!-- File Operations -->
+        <div class="flex flex-col items-center space-y-1">
+          <div class="flex space-x-1">
+            <input id="import-xlsx-input" type="file" accept=".xlsx,.xls" class="hidden">
+            <button id="import-xlsx" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Open</button>
+            <button id="export-xlsx" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Save</button>
+            <button id="export-csv" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">CSV</button>
+          </div>
+          <span class="text-xs text-gray-500">File</span>
+        </div>
+        
+        <div class="h-10 w-px bg-gray-300"></div>
+        
+        <!-- Help -->
+        <div class="flex flex-col items-center space-y-1">
+          <button id="help-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">Help</button>
+          <span class="text-xs text-gray-500">Support</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Main Container -->
+  <div class="main-container flex h-[calc(100vh-8rem)]">
+    <!-- Excel Spreadsheet Area -->
+    <div class="flex-1 bg-white flex flex-col">
+      <!-- Excel Formula Bar Area -->
+      <div class="bg-white border-b border-gray-300 px-2 py-1 flex items-center space-x-2 text-sm">
+        <div class="flex items-center space-x-2">
+          <div class="w-16 text-center border border-gray-300 px-2 py-1 bg-gray-50" id="cell-reference">A1</div>
+          <button class="px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">fx</button>
+        </div>
+        <div class="flex-1">
+          <input type="text" id="formula-bar" placeholder="Enter formula or value..." 
+                 class="w-full px-2 py-1 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400">
+        </div>
+      </div>
+      
+      <!-- Excel Sheet Tabs (Bottom Style) -->
+      <div class="bg-gray-100 border-b border-gray-300 px-2 py-1 flex items-center justify-between">
+        <div class="flex items-center space-x-1">
+          <div id="sheet-tabs" class="flex space-x-0"></div>
+          <button id="add-sheet-btn" class="ml-2 w-6 h-6 text-gray-600 hover:bg-gray-200 rounded flex items-center justify-center">+</button>
+        </div>
+        <div class="flex items-center space-x-2 text-xs text-gray-600">
+          <button id="insert-row-btn" class="px-2 py-1 bg-green-50 text-green-700 rounded hover:bg-green-100">+Row</button>
+          <button id="insert-col-btn" class="px-2 py-1 bg-green-50 text-green-700 rounded hover:bg-green-100">+Col</button>
+          <button id="delete-row-btn" class="px-2 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100">-Row</button>
+          <button id="delete-col-btn" class="px-2 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100">-Col</button>
+        </div>
+      </div>
+      
+      <!-- Excel Spreadsheet Grid -->
+      <div class="flex-1 overflow-auto bg-white">
+        <div id="spreadsheet" class="min-w-full"></div>
+      </div>
+    </div>
+    
+    <!-- AI Assistant Panel (Collapsible) -->
+    <div id="ai-panel" class="w-80 bg-gray-50 border-l border-gray-300 flex flex-col">
+      <!-- AI Panel Header -->
+      <div class="bg-blue-600 text-white px-3 py-2 flex items-center justify-between text-sm font-medium">
+        <div class="flex items-center space-x-2">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z"/>
+          </svg>
+          <span>AI Assistant</span>
+        </div>
+        <button id="toggle-ai-panel" class="text-white hover:bg-blue-700 rounded px-2 py-1">×</button>
+      </div>
+      
+      <!-- Chat Messages -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-2 bg-white"></div>
+      
+      <!-- Task Status (Compact) -->
+      <div id="task-status" class="bg-gray-100 border-t border-gray-300 px-3 py-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span id="task-summary" class="text-gray-600">No active tasks</span>
+          <button id="view-tasks" class="text-blue-600 hover:text-blue-800">View All</button>
+        </div>
+      </div>
+      
+      <!-- AI Chat Input -->
+      <div class="border-t border-gray-300 p-3 bg-white">
+        <div class="flex space-x-2">
+          <input type="text" id="message-input" placeholder="Tell AI what to do with your spreadsheet..." 
+                 class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 text-sm">
+          <button id="send-btn" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center space-x-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Task List Modal (Hidden by default) -->
+  <div id="task-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+      <div class="fixed inset-0 bg-black bg-opacity-50"></div>
+      <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        <div class="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
+          <h3 class="font-medium">AI Tasks</h3>
+          <button id="close-task-modal" class="text-white hover:bg-blue-700 rounded px-2 py-1">×</button>
+        </div>
+        <div id="task-list" class="p-4 overflow-y-auto max-h-96 space-y-2"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Modal Container -->
+  <div id="modal-container"></div>
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+  
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl flex items-center space-x-3">
+      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+      <span class="text-gray-700 font-medium">Loading AI Excel Editor...</span>
+    </div>
+  </div>
+  
+  <script src="./app.js"></script>
+</body>
+</html>
