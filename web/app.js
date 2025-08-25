@@ -96,25 +96,39 @@ const db = {
 
 // Toast
 class Toast {
-  constructor(){ this.container = document.getElementById('toast-container'); }
-  show(message, type='info', duration=5000){
-    const id = 't'+Date.now();
-    const typeStyles = {success:'bg-green-500 text-white', error:'bg-red-500 text-white', warning:'bg-yellow-500 text-white', info:'bg-blue-500 text-white'};
-    const html = `
-      <div id="${id}" class="toast flex items-center p-4 rounded-lg shadow-lg ${typeStyles[type]} transform translate-x-full transition-transform duration-300 ease-in-out">
-        <div class="flex-1"><p class="text-sm font-medium">${message}</p></div>
-        <button onclick="this.parentElement.remove()" class="ml-3 text-white hover:text-gray-200 focus:outline-none">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>`;
-    this.container.insertAdjacentHTML('beforeend', html);
-    const el = document.getElementById(id);
-    setTimeout(()=>el.classList.remove('translate-x-full'), 10);
-    if(duration>0){
-      setTimeout(()=>{ if(el){ el.classList.add('translate-x-full'); setTimeout(()=>el.remove(),300);} }, duration);
+    constructor() {
+        this.container = document.getElementById('toast-container');
     }
-    return el;
-  }
+
+    show(message, type = 'info', duration = 5000) {
+        const id = 't' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = id;
+        toast.className = `toast toast-${type}`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="toast-icon"></div>
+            <div class="toast-content">
+                <p class="toast-message">${message}</p>
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+
+        this.container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100);
+
+        if (duration > 0) {
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 500);
+            }, duration);
+        }
+
+        return toast;
+    }
 }
 const toast = new Toast();
 function showToast(msg,type='info',dur=5000){ return toast.show(msg,type,dur); }
@@ -1707,9 +1721,24 @@ IMPORTANT:
   } catch(error) {
     console.error('Planner failed:', error);
                 showToast('Planning failed: ' + error.message, 'error');
-                return [];
-              }
-            }
+                                return [];
+                              }
+                            }
+                
+                async function runExecutorWithRetry(task, maxRetries = 3) {
+                    for (let i = 0; i < maxRetries; i++) {
+                        try {
+                            const result = await runExecutor(task);
+                            if (result) {
+                                return result;
+                            }
+                            console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
+                        } catch (error) {
+                            console.error(`Executor attempt ${i + 1} threw an error:`, error);
+                        }
+                    }
+                    throw new Error('Executor failed after multiple retries.');
+                }
     
     async function runExecutorWithRetry(task, maxRetries = 3) {
         for (let i = 0; i < maxRetries; i++) {
