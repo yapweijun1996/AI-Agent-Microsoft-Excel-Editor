@@ -7,6 +7,7 @@
   <meta name="keywords" content="Excel editor, AI automation, spreadsheet, OpenAI, Gemini, web application, multi-agent system">
   <meta name="author" content="AI Excel Editor Team">
   <title>AI Excel Editor - Multi-Agent Spreadsheet Automation</title>
+<script src="https://cdn.jsdelivr.net/npm/hot-formula-parser@4.0.0/dist/formula-parser.min.js"></script>
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
@@ -37,21 +38,75 @@
   
   <!-- Excel-style Ribbon -->
   <div class="bg-gray-50 border-b border-gray-300">
-    <!-- File Menu Bar -->
+    <!-- Ribbon Tabs -->
     <div class="h-6 bg-white border-b border-gray-200 px-2 flex items-center space-x-4 text-xs">
-      <button class="hover:bg-blue-50 px-2 py-1 rounded">File</button>
-      <button class="hover:bg-blue-50 px-2 py-1 rounded">Home</button>
-      <button class="hover:bg-blue-50 px-2 py-1 rounded">Insert</button>
-      <button class="hover:bg-blue-50 px-2 py-1 rounded">Formulas</button>
-      <button class="hover:bg-blue-50 px-2 py-1 rounded">Data</button>
-      <button class="hover:bg-blue-50 px-2 py-1 rounded">Review</button>
-      <button id="ai-tab" class="hover:bg-blue-50 px-2 py-1 rounded bg-blue-100">AI Assistant</button>
+        <button class="ribbon-tab active" data-tab="home">Home</button>
+        <button class="ribbon-tab" data-tab="insert">Insert</button>
+        <button class="ribbon-tab" data-tab="page-layout">Page Layout</button>
+        <button class="ribbon-tab" data-tab="formulas">Formulas</button>
+        <button class="ribbon-tab" data-tab="data">Data</button>
+        <button class="ribbon-tab" data-tab="review">Review</button>
+        <button class="ribbon-tab" data-tab="ai-assistant">AI Assistant</button>
     </div>
     
     <!-- Ribbon Content -->
     <div id="ribbon-content" class="p-2 bg-gray-50">
-      <!-- AI Assistant Ribbon (Default) -->
-      <div id="ai-ribbon" class="flex items-center space-x-4">
+      <!-- Home Ribbon -->
+      <div id="home-ribbon" class="flex items-center space-x-4">
+        <!-- File Operations -->
+        <div class="flex flex-col items-center space-y-1">
+          <div class="flex space-x-1">
+            <input id="import-xlsx-input" type="file" accept=".xlsx,.xls" class="hidden">
+            <button id="import-xlsx" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Open</button>
+            <button id="export-xlsx" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Save</button>
+            <button id="export-csv" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">CSV</button>
+          </div>
+          <span class="text-xs text-gray-500">File</span>
+        </div>
+
+        <div class="h-10 w-px bg-gray-300"></div>
+
+        <!-- Formatting -->
+        <div class="flex flex-col items-center space-y-1">
+            <div class="flex space-x-1">
+                <button id="format-bold" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">B</button>
+                <button id="format-italic" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">I</button>
+                <button id="format-underline" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">U</button>
+                <input type="color" id="format-color" class="w-6 h-6 p-0 border-none rounded" />
+            </div>
+            <span class="text-xs text-gray-500">Formatting</span>
+        </div>
+      </div>
+
+      <!-- Insert Ribbon -->
+      <div id="insert-ribbon" class="hidden items-center space-x-4">
+        <!-- Chart -->
+        <div class="flex flex-col items-center space-y-1">
+          <button id="chart-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Chart</button>
+          <span class="text-xs text-gray-500">Chart</span>
+        </div>
+      </div>
+
+      <!-- Review Ribbon -->
+      <div id="review-ribbon" class="hidden items-center space-x-4">
+        <!-- Comments -->
+        <div class="flex flex-col items-center space-y-1">
+          <button id="comment-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Comment</button>
+          <span class="text-xs text-gray-500">Comments</span>
+        </div>
+      </div>
+
+      <!-- Data Ribbon -->
+      <div id="data-ribbon" class="hidden items-center space-x-4">
+        <!-- Sort & Filter -->
+        <div class="flex flex-col items-center space-y-1">
+          <button id="sort-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Sort</button>
+          <span class="text-xs text-gray-500">Sort & Filter</span>
+        </div>
+      </div>
+
+      <!-- AI Assistant Ribbon -->
+      <div id="ai-assistant-ribbon" class="flex items-center space-x-4">
         <!-- AI Setup -->
         <div class="flex flex-col items-center space-y-1 px-2">
           <div class="flex space-x-1">
@@ -84,21 +139,12 @@
               <input id="dry-run-toggle" type="checkbox" class="rounded border-gray-300">
               <span>Dry Run</span>
             </label>
+            <label class="flex items-center space-x-1 text-xs">
+             <input id="auto-execute-toggle" type="checkbox" class="rounded border-gray-300">
+             <span>Auto Execute</span>
+           </label>
           </div>
           <span class="text-xs text-gray-500">Execution</span>
-        </div>
-        
-        <div class="h-10 w-px bg-gray-300"></div>
-        
-        <!-- File Operations -->
-        <div class="flex flex-col items-center space-y-1">
-          <div class="flex space-x-1">
-            <input id="import-xlsx-input" type="file" accept=".xlsx,.xls" class="hidden">
-            <button id="import-xlsx" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Open</button>
-            <button id="export-xlsx" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Save</button>
-            <button id="export-csv" class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">CSV</button>
-          </div>
-          <span class="text-xs text-gray-500">File</span>
         </div>
         
         <div class="h-10 w-px bg-gray-300"></div>
@@ -204,6 +250,9 @@
   <!-- Toast Container -->
   <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
   
+  <!-- Debug Toast Button -->
+  <button onclick="showToast('Test toast message', 'success')" class="fixed bottom-4 right-4 bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Debug Toast</button>
+  
   <!-- Loading Overlay -->
   <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center hidden">
     <div class="bg-white p-6 rounded-lg shadow-xl flex items-center space-x-3">
@@ -212,6 +261,9 @@
     </div>
   </div>
   
+  <script src="https://cdn.jsdelivr.net/npm/hot-formula-parser@4.0.0/dist/formula-parser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="./FormulaEngine.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

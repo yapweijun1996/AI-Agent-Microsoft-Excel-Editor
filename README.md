@@ -1,9 +1,9 @@
 # AI Excel Editor - Multi-Agent Spreadsheet Automation
 
 ![AI Excel Editor](https://img.shields.io/badge/AI-Excel%20Editor-blue?style=for-the-badge&logo=microsoftexcel)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green?style=flat&logo=openai)
-![Gemini](https://img.shields.io/badge/Google-Gemini-orange?style=flat&logo=google)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-yellow?style=flat&logo=javascript)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green?style=for-the-badge&logo=openai)
+![Gemini](https://img.shields.io/badge/Google-Gemini-orange?style=for-the-badge&logo=google)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-yellow?style=for-the-badge&logo=javascript)
 
 A powerful web-based Excel editor with multi-agent AI automation that runs entirely in your browser. No server required!
 
@@ -58,6 +58,8 @@ Try these example commands:
 - "Format column D as currency"
 - "Sort the data by age in ascending order"
 - "Add a new sheet for expenses"
+- "Create a budget tracker with categories and amounts"
+- "Generate a sales report with charts and totals"
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -100,18 +102,19 @@ Try these example commands:
 ## 🛠️ Technology Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS with custom animations
 - **Spreadsheet Engine**: SheetJS (XLSX)
-- **Storage**: IndexedDB + localStorage
-- **AI Providers**: OpenAI GPT-4, Google Gemini
+- **Storage**: IndexedDB + localStorage with data persistence
+- **AI Providers**: OpenAI GPT-4o/GPT-4o-mini, Google Gemini Pro/Flash
+- **Multi-Agent System**: Coordinated AI agents for planning, execution, and validation
 - **Build**: No build process required - pure web standards
 
 ## 📱 Browser Compatibility
 
-- ✅ Chrome 60+
-- ✅ Firefox 55+
-- ✅ Safari 11+
-- ✅ Edge 79+
+- **Chrome**: Version 60+
+- **Firefox**: Version 55+
+- **Safari**: Version 11+
+- **Edge**: Version 79+
 
 ## 🔧 Development
 

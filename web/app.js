@@ -14,14 +14,19 @@ const STORAGE_KEYS = {
 const AppState = {
   wb: null,
   activeSheet: 'Sheet1',
+  activeCell: { r: 0, c: 0 }, // Excel-like active cell (0-based r,c)
+  selectedRows: [], // 1-based row numbers selected via row header
+  selectedCols: [], // 0-based column indices selected via column header
   tasks: [],
   messages: [],
   keys: { openai: null, gemini: null },
   dryRun: false,
   selectedModel: 'auto', // auto, openai:gpt-4o, gemini:gemini-2.5-flash, etc.
+  autoExecute: false,
   history: [],
   historyIndex: -1,
-  maxHistorySize: 50
+  maxHistorySize: 50,
+  clipboard: null
 };
 
 function log(...args){ if(DEBUG) console.log('[DEBUG]', ...args); }
@@ -309,41 +314,6 @@ function updateProviderStatus(){
   }
 }
 
-// Panel layout persistence
-function savePanelLayout(){
-  const left = document.getElementById('excel-panel');
-  const right = document.getElementById('chat-panel');
-  localStorage.setItem(STORAGE_KEYS.panelLayout, JSON.stringify({leftWidth:left.style.flex, rightWidth:right.style.flex}));
-}
-function restorePanelLayout(){
-  const saved = localStorage.getItem(STORAGE_KEYS.panelLayout);
-  if(saved){ const layout = JSON.parse(saved); const l = document.getElementById('excel-panel'); const r = document.getElementById('chat-panel'); l.style.flex = layout.leftWidth||''; r.style.flex = layout.rightWidth||''; }
-}
-
-// Draggable divider
-function initDraggableDivider(){
-  // Skip divider initialization if elements don't exist (new Excel-like layout)
-  const divider = document.getElementById('divider');
-  const leftPanel = document.getElementById('excel-panel');
-  const rightPanel = document.getElementById('chat-panel');
-  
-  if(!divider || !leftPanel || !rightPanel) {
-    log('Divider elements not found, skipping draggable divider initialization');
-    return;
-  }
-  
-  const container = document.querySelector('.main-container');
-  let isDragging=false;
-  divider.addEventListener('mousedown',()=>{ isDragging=true; document.body.style.cursor='col-resize'; document.body.style.userSelect='none'; });
-  document.addEventListener('mousemove',(e)=>{
-    if(!isDragging) return;
-    const rect = container.getBoundingClientRect();
-    const newLeft = e.clientX - rect.left;
-    const minLeft=300, minRight=250;
-    if(newLeft>=minLeft && (rect.width - newLeft)>=minRight){ leftPanel.style.flex = `0 0 ${newLeft}px`; rightPanel.style.flex='1'; }
-  });
-  document.addEventListener('mouseup',()=>{ if(isDragging){ isDragging=false; document.body.style.cursor=''; document.body.style.userSelect=''; savePanelLayout(); } });
-}
 
 // Workbook helpers
 async function ensureWorkbook(){
@@ -566,34 +536,54 @@ window.deleteSheet = function(sheetName){
 
 // Spreadsheet render
 function renderSpreadsheetTable(){
+  const container = document.getElementById('spreadsheet');
   const ws = getWorksheet();
   const ref = ws['!ref'] || 'A1:C20';
   const range = XLSX.utils.decode_range(ref);
+
+  const rowHeight = 32;
+  const visibleRows = Math.ceil(container.clientHeight / rowHeight);
+  const firstRow = Math.floor(container.scrollTop / rowHeight);
+  const lastRow = Math.min(range.e.r, firstRow + visibleRows);
+
   let html = '';
-  html += '<table class="ai-grid min-w-full border-collapse border border-gray-300 bg-white">';
+  html += `<div style="height: ${range.e.r * rowHeight}px;">`; // Spacer for scrollbar
+  html += '<table class="ai-grid min-w-full border-collapse border border-gray-300 bg-white" style="transform: translateY(' + (firstRow * rowHeight) + 'px)">';
   html += '<thead class="bg-gray-50"><tr>';
   html += '<th class="w-12 p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500">#</th>';
   for(let c=range.s.c; c<=range.e.c; c++){
     const colLetter = XLSX.utils.encode_col(c);
-    html += `<th class="p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500 min-w-[100px]">${colLetter}</th>`;
+    html += `<th class="col-header cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500 min-w-[100px]" data-col="${colLetter}" data-col-index="${c}">${colLetter}</th>`;
   }
   html += '</tr></thead><tbody>';
-  for(let r=range.s.r; r<=range.e.r; r++){
+  for(let r=firstRow; r<=lastRow; r++){
     html += '<tr class="hover:bg-gray-50">';
-    html += `<td class=\"p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500\">${r+1}</td>`;
+    html += `<td class="row-index cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500" data-row="${r+1}">${r+1}</td>`;
     for(let c=range.s.c; c<=range.e.c; c++){
       const addr = XLSX.utils.encode_cell({r, c});
       const cell = ws[addr];
-      const value = cell ? cell.v : '';
+      const value = cell ? (cell.f ? FormulaEngine.execute(cell.f, { ...AppState.wb, activeSheet: AppState.activeSheet }) : cell.v) : '';
+      const styles = cell && cell.s ? cell.s : {};
+      const styleStr = `
+        font-weight: ${styles.bold ? 'bold' : 'normal'};
+        font-style: ${styles.italic ? 'italic' : 'normal'};
+        text-decoration: ${styles.underline ? 'underline' : 'none'};
+        background-color: ${styles.fill && styles.fill.fgColor ? `#${styles.fill.fgColor.rgb}` : 'transparent'};
+      `;
+      const hasComment = cell && cell.c && cell.c.t;
       html += `
-        <td class=\"p-1 border border-gray-300 hover:bg-blue-50 focus-within:bg-blue-50 min-h-[32px]\" data-cell=\"${addr}\">
-          <input type=\"text\" value=\"${escapeHtml(value)}\" class=\"cell-input w-full h-full px-2 py-1 bg-transparent border-none outline-none focus:bg-white focus:shadow-sm focus:ring-1 focus:ring-blue-400 rounded\" onblur=\"updateCell('${addr}', this.value)\" onkeypress=\"handleCellKeypress(event)\" />
+        <td class="p-1 border border-gray-300 hover:bg-blue-50 focus-within:bg-blue-50 min-h-[32px] relative" data-cell="${addr}" data-col-index="${c}">
+          ${hasComment ? '<div class="absolute top-0 right-0 w-0 h-0 border-solid border-t-8 border-l-8 border-t-red-500 border-l-transparent"></div>' : ''}
+          <input type="text" value="${escapeHtml(value)}" style="${styleStr}" class="cell-input w-full h-full px-2 py-1 bg-transparent border-none outline-none focus:bg-white focus:shadow-sm focus:ring-1 focus:ring-blue-400 rounded" onfocus="onCellFocus('${addr}', this)" onblur="updateCell('${addr}', this.value)" onkeypress="handleCellKeypress(event)" />
         </td>`;
     }
     html += '</tr>';
   }
-  html += '</tbody></table>';
-  document.getElementById('spreadsheet').innerHTML = html;
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  // Bind header interactions and re-apply selection highlight after render
+  bindGridHeaderEvents();
+  applySelectionHighlight();
 }
 
 function parseCellValue(v){
@@ -626,20 +616,24 @@ function expandRefForCell(ws, addr){
 
 window.updateCell = function(addr, value){
   const ws = getWorksheet();
-  const oldValue = ws[addr] ? ws[addr].v : '';
-  
-  // Only save to history if the value actually changed
-  if(String(oldValue) !== String(value)) {
+  const oldValue = ws[addr] ? (ws[addr].f || ws[addr].v) : '';
+
+  if (String(oldValue) !== String(value)) {
     saveToHistory(`Edit cell ${addr}`, { addr, oldValue, newValue: value, sheet: AppState.activeSheet });
   }
-  
-  const parsed = parseCellValue(value);
-  if (parsed.t === 'z') {
-    delete ws[addr];
+
+  if (value.startsWith('=')) {
+    ws[addr] = { t: 's', f: value };
+    // The value 'v' will be calculated on render.
   } else {
-    ws[addr] = { t: parsed.t, v: parsed.v };
-    expandRefForCell(ws, addr);
+    const parsed = parseCellValue(value);
+    if (parsed.t === 'z') {
+      delete ws[addr];
+    } else {
+      ws[addr] = { t: parsed.t, v: parsed.v };
+    }
   }
+  expandRefForCell(ws, addr);
   persistSnapshot();
   renderSpreadsheetTable();
 };
@@ -647,6 +641,255 @@ window.updateCell = function(addr, value){
 window.handleCellKeypress = function(event){
   if(event.key==='Enter'){ event.preventDefault(); event.target.blur(); }
 };
+
+// Excel-like active cell tracking and button operations based on selection
+
+window.onCellFocus = function(addr, input){
+  try{
+    const cell = XLSX.utils.decode_cell(addr);
+    AppState.activeCell = cell;
+
+    const refEl = document.getElementById('cell-reference');
+    if(refEl) refEl.textContent = addr;
+
+    const formulaBar = document.getElementById('formula-bar');
+    if(formulaBar){
+      const ws = getWorksheet();
+      const c = ws[addr];
+      if(c){
+        if (c.f) {
+          formulaBar.value = c.f;
+        } else if (c.v !== undefined) {
+          formulaBar.value = String(c.v);
+        } else {
+          formulaBar.value = '';
+        }
+      } else {
+        formulaBar.value = '';
+      }
+    }
+  }catch(e){ /* no-op */ }
+};
+
+async function insertRowAtSelection(){
+  const rowNumber = (AppState.activeCell?.r ?? 0) + 1; // 1-based, insert above current row
+  await applyEdits([{ op: 'insertRow', sheet: AppState.activeSheet, row: rowNumber }]);
+  showToast(`Inserted row at ${rowNumber}`, 'success');
+}
+
+async function insertColumnAtSelectionLeft(){
+  const colIndex = (AppState.activeCell?.c ?? 0); // 0-based, insert to the left of current column
+  await applyEdits([{ op: 'insertColumn', sheet: AppState.activeSheet, index: colIndex }]);
+  const colLetter = XLSX.utils.encode_col(colIndex);
+  showToast(`Inserted column ${colLetter}`, 'success');
+}
+
+async function deleteSelectedRow(){
+  const rowNumber = (AppState.activeCell?.r ?? 0) + 1; // 1-based
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  if(rowNumber - 1 < range.s.r || rowNumber - 1 > range.e.r){
+    showToast('Invalid row selection', 'warning');
+    return;
+  }
+  await applyEdits([{ op: 'deleteRow', sheet: AppState.activeSheet, row: rowNumber }]);
+  showToast(`Deleted row ${rowNumber}`, 'success');
+}
+
+async function deleteSelectedColumn(){
+  const colIndex = (AppState.activeCell?.c ?? 0);
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  if(colIndex < range.s.c || colIndex > range.e.c){
+    showToast('Invalid column selection', 'warning');
+    return;
+  }
+  await applyEdits([{ op: 'deleteColumn', sheet: AppState.activeSheet, index: colIndex }]);
+  const colLetter = XLSX.utils.encode_col(colIndex);
+  showToast(`Deleted column ${colLetter}`, 'success');
+}
+
+// Selection and header interactions
+
+function clearPreviousSelection() {
+  const container = document.getElementById('spreadsheet');
+  if(!container) return;
+  container.querySelectorAll('.ai-selected').forEach(el => {
+    el.classList.remove('ai-selected','bg-blue-100','ring-1','ring-blue-300');
+  });
+}
+
+function applySelectionHighlight(){
+  const container = document.getElementById('spreadsheet');
+  if(!container) return;
+  clearPreviousSelection();
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+
+  // Highlight selected rows
+  (AppState.selectedRows||[]).forEach(rowNumber => {
+    if(rowNumber < range.s.r + 1 || rowNumber > range.e.r + 1) return;
+    const rowHeader = container.querySelector(`td.row-index[data-row="${rowNumber}"]`);
+    if(rowHeader){
+      rowHeader.classList.add('ai-selected','bg-blue-100','ring-1','ring-blue-300');
+      const tr = rowHeader.parentElement;
+      if(tr){
+        tr.querySelectorAll('td:not(.row-index)').forEach(td => {
+          td.classList.add('ai-selected','bg-blue-100');
+        });
+      }
+    }
+  });
+
+  // Highlight selected columns
+  (AppState.selectedCols||[]).forEach(colIndex => {
+    if(colIndex < range.s.c || colIndex > range.e.c) return;
+    const th = container.querySelector(`th.col-header[data-col-index="${colIndex}"]`);
+    if(th) th.classList.add('ai-selected','bg-blue-100','ring-1','ring-blue-300');
+    container.querySelectorAll(`td[data-col-index="${colIndex}"]`).forEach(td => {
+      td.classList.add('ai-selected','bg-blue-100');
+    });
+  });
+}
+
+function bindGridHeaderEvents(){
+  const container = document.getElementById('spreadsheet');
+  if(!container) return;
+
+  // Row header click / context menu
+  container.querySelectorAll('td.row-index').forEach(td => {
+    td.addEventListener('click', () => {
+      const row = parseInt(td.dataset.row, 10);
+      if(!isFinite(row)) return;
+      AppState.selectedRows = [row];
+      AppState.selectedCols = [];
+      AppState.activeCell = { r: row - 1, c: 0 };
+      const refEl = document.getElementById('cell-reference');
+      if(refEl) refEl.textContent = `A${row}`;
+      applySelectionHighlight();
+    });
+
+    td.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const row = parseInt(td.dataset.row, 10);
+      AppState.selectedRows = [row];
+      AppState.selectedCols = [];
+      applySelectionHighlight();
+      showContextMenu(e.clientX, e.clientY, [
+        { label: 'Insert Row Above', action: () => insertRowAtSpecific(row) },
+        { label: 'Delete Row', action: () => deleteRowAtSpecific(row) }
+      ]);
+    });
+  });
+
+  // Column header click / context menu
+  container.querySelectorAll('th.col-header').forEach(th => {
+    th.addEventListener('click', () => {
+      const colIndex = parseInt(th.dataset.colIndex, 10);
+      const colLetter = th.dataset.col;
+      if(!isFinite(colIndex)) return;
+      AppState.selectedCols = [colIndex];
+      AppState.selectedRows = [];
+      AppState.activeCell = { r: 0, c: colIndex };
+      const refEl = document.getElementById('cell-reference');
+      if(refEl) refEl.textContent = `${colLetter}${(AppState.activeCell.r||0)+1}`;
+      applySelectionHighlight();
+    });
+
+    th.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const colIndex = parseInt(th.dataset.colIndex, 10);
+      const colLetter = th.dataset.col;
+      AppState.selectedCols = [colIndex];
+      AppState.selectedRows = [];
+      applySelectionHighlight();
+      showContextMenu(e.clientX, e.clientY, [
+        { label: 'Insert Column Left', action: () => insertColumnAtSpecificIndex(colIndex) },
+        { label: 'Delete Column', action: () => deleteColumnAtSpecificIndex(colIndex) }
+      ]);
+    });
+  });
+
+  // Cell context menu
+  container.querySelectorAll('td[data-cell]').forEach(td => {
+    td.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const cellRef = td.dataset.cell;
+      showContextMenu(e.clientX, e.clientY, [
+        { label: 'Cut', action: () => cutCell(cellRef) },
+        { label: 'Copy', action: () => copyCell(cellRef) },
+        { label: 'Paste', action: () => pasteCell(cellRef) }
+      ]);
+    });
+  });
+}
+
+// Context menu helpers
+function showContextMenu(x, y, items){
+  // Remove existing
+  const existing = document.getElementById('grid-context-menu');
+  if(existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'grid-context-menu';
+  menu.className = 'fixed z-50 bg-white border border-gray-300 rounded shadow-lg text-sm';
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.style.minWidth = '180px';
+
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'w-full text-left px-3 py-2 hover:bg-gray-100';
+    btn.textContent = item.label;
+    btn.addEventListener('click', () => {
+      hideContextMenu();
+      try { item.action(); } catch(e) { console.error(e); }
+    });
+    menu.appendChild(btn);
+  });
+
+  document.body.appendChild(menu);
+
+  const off = (ev) => {
+    if(ev && ev.target && menu.contains(ev.target)) return;
+    hideContextMenu();
+  };
+  setTimeout(() => {
+    window.addEventListener('click', off, { once: true });
+    window.addEventListener('contextmenu', off, { once: true });
+    window.addEventListener('scroll', hideContextMenu, { once: true });
+    window.addEventListener('resize', hideContextMenu, { once: true });
+  }, 0);
+}
+
+function hideContextMenu(){
+  const m = document.getElementById('grid-context-menu');
+  if(m) m.remove();
+}
+
+// Specific operations from context menu
+async function insertRowAtSpecific(rowNumber){
+  await applyEdits([{ op: 'insertRow', sheet: AppState.activeSheet, row: rowNumber }]);
+  showToast(`Inserted row at ${rowNumber}`, 'success');
+}
+
+async function deleteRowAtSpecific(rowNumber){
+  await applyEdits([{ op: 'deleteRow', sheet: AppState.activeSheet, row: rowNumber }]);
+  showToast(`Deleted row ${rowNumber}`, 'success');
+}
+
+async function insertColumnAtSpecificIndex(colIndex){
+  await applyEdits([{ op: 'insertColumn', sheet: AppState.activeSheet, index: colIndex }]);
+  const colLetter = XLSX.utils.encode_col(colIndex);
+  showToast(`Inserted column ${colLetter}`, 'success');
+}
+
+async function deleteColumnAtSpecificIndex(colIndex){
+  await applyEdits([{ op: 'deleteColumn', sheet: AppState.activeSheet, index: colIndex }]);
+  const colLetter = XLSX.utils.encode_col(colIndex);
+  showToast(`Deleted column ${colLetter}`, 'success');
+}
 
 // Direct spreadsheet manipulation functions
 function insertRowAtEnd() {
@@ -1135,6 +1378,15 @@ window.executeTasks = async function(taskIds) {
     }
   }
 };
+async function autoExecuteTasks() {
+ if (!AppState.autoExecute) return;
+
+ const pendingTasks = AppState.tasks.filter(t => t.status === 'pending');
+ if (pendingTasks.length > 0) {
+   showToast(`Auto-executing ${pendingTasks.length} task(s)...`, 'info');
+   await executeTasks(pendingTasks.map(t => t.id));
+ }
+}
 
 // Chat
 function renderChatMessage(msg){
@@ -1166,81 +1418,67 @@ function drawChat(){
   el.scrollTop = el.scrollHeight;
 }
 
-async function onSend(){
-  const input = document.getElementById('message-input');
-  const text = input.value.trim();
-  if(!text) return;
-  
-  // Add user message
-  const userMsg = {role:'user', content:text, timestamp:Date.now()};
-  AppState.messages.push(userMsg);
-  drawChat();
-  input.value='';
-  
-  // Show typing indicator
-  const typingMsg = {role:'assistant', content:'🤔 AI agents are planning your request...', timestamp:Date.now(), isTyping:true};
-  AppState.messages.push(typingMsg);
-  drawChat();
-  
-  try {
-    // Planner: create tasks
-    const tasks = await runPlanner(text);
-    
-    // Remove typing indicator
-    AppState.messages = AppState.messages.filter(m => !m.isTyping);
-    
-    let responseContent = '';
-    
-    if(tasks && tasks.length){
-      AppState.tasks.push(...tasks);
-      saveTasks(); drawTasks();
-      
-      responseContent = `✅ I've analyzed your request and created ${tasks.length} task(s):\n\n`;
-      tasks.forEach((task, i) => {
-        responseContent += `${i+1}. **${task.title}**: ${task.description}\n`;
-      });
-      responseContent += `\n🎯 Click the execute button on each task to run them, or use "Execute All" for orchestrated execution.`;
-      
-      showToast(`Planned ${tasks.length} task(s)`, 'success');
-    }else{
-      responseContent = `⚠️ I couldn't break down your request into specific tasks. Let me try a direct approach...`;
-      
-      // fallback single-step
-      const task = {
-        id:'task-'+Date.now(), 
-        title:text, 
-        description:text, 
-        status:'pending', 
-        createdAt:new Date().toISOString()
-      };
-      AppState.tasks.push(task); 
-      saveTasks(); 
-      drawTasks();
-      
-      responseContent += `\n\n✅ Created a single task: "${task.title}"\nClick execute to run it.`;
-      showToast('Created fallback task','warning');
+async function onSend() {
+    const input = document.getElementById('message-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const userMsg = { role: 'user', content: text, timestamp: Date.now() };
+    AppState.messages.push(userMsg);
+    drawChat();
+    input.value = '';
+
+    const typingMsg = { role: 'assistant', content: '🤔 AI agents are planning your request...', timestamp: Date.now(), isTyping: true };
+    AppState.messages.push(typingMsg);
+    drawChat();
+
+    try {
+        const tasks = await runPlanner(text);
+        AppState.messages = AppState.messages.filter(m => !m.isTyping);
+
+        if (tasks && tasks.length) {
+            AppState.tasks.push(...tasks);
+            await saveTasks();
+            drawTasks();
+
+            let responseContent = `✅ I've analyzed your request and created ${tasks.length} task(s):\n\n`;
+            tasks.forEach((task, i) => {
+                responseContent += `${i + 1}. **${task.title}**: ${task.description}\n`;
+            });
+            responseContent += `\n🎯 Click the execute button on each task to run them, or use "Execute All" for orchestrated execution.`;
+
+            const aiMsg = { role: 'assistant', content: responseContent, timestamp: Date.now() };
+            AppState.messages.push(aiMsg);
+            drawChat();
+
+            if (AppState.autoExecute) {
+                executeTasks(tasks.map(t => t.id));
+            }
+        } else {
+            const singleTask = {
+                id: 'task-' + Date.now(),
+                title: text,
+                description: 'Single task execution',
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            AppState.tasks.push(singleTask);
+            await saveTasks();
+            drawTasks();
+            await executeTask(singleTask.id);
+        }
+    } catch (error) {
+        AppState.messages = AppState.messages.filter(m => !m.isTyping);
+        const errorMsg = {
+            role: 'assistant',
+            content: `❌ I encountered an error processing your request: ${error.message}\n\nPlease check your API keys and try again.`,
+            timestamp: Date.now()
+        };
+        AppState.messages.push(errorMsg);
+        drawChat();
+        console.error('Chat error:', error);
+        showToast('Chat processing failed', 'error');
     }
-    
-    // Add AI response message
-    const aiMsg = {role:'assistant', content:responseContent, timestamp:Date.now()};
-    AppState.messages.push(aiMsg);
-    drawChat();
-    
-  } catch(error) {
-    // Remove typing indicator
-    AppState.messages = AppState.messages.filter(m => !m.isTyping);
-    
-    const errorMsg = {
-      role:'assistant', 
-      content:`❌ I encountered an error processing your request: ${error.message}\n\nPlease check your API keys and try again.`, 
-      timestamp:Date.now()
-    };
-    AppState.messages.push(errorMsg);
-    drawChat();
-    
-    console.error('Chat error:', error);
-    showToast('Chat processing failed', 'error');
-  }
 }
 
 // Agent connectors
@@ -1468,10 +1706,85 @@ IMPORTANT:
     }
   } catch(error) {
     console.error('Planner failed:', error);
-    showToast('Planning failed: ' + error.message, 'error');
-    return [];
-  }
-}
+                showToast('Planning failed: ' + error.message, 'error');
+                return [];
+              }
+            }
+    
+    async function runExecutorWithRetry(task, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const result = await runExecutor(task);
+                if (result) {
+                    return result;
+                }
+                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
+            } catch (error) {
+                console.error(`Executor attempt ${i + 1} threw an error:`, error);
+            }
+        }
+        throw new Error('Executor failed after multiple retries.');
+    }
+    
+    async function runExecutorWithRetry(task, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const result = await runExecutor(task);
+                if (result) {
+                    return result;
+                }
+                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
+            } catch (error) {
+                console.error(`Executor attempt ${i + 1} threw an error:`, error);
+            }
+        }
+        throw new Error('Executor failed after multiple retries.');
+    }
+    
+    async function runExecutorWithRetry(task, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const result = await runExecutor(task);
+                if (result) {
+                    return result;
+                }
+                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
+            } catch (error) {
+                console.error(`Executor attempt ${i + 1} threw an error:`, error);
+            }
+        }
+        throw new Error('Executor failed after multiple retries.');
+    }
+    
+    async function runExecutorWithRetry(task, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const result = await runExecutor(task);
+                if (result) {
+                    return result;
+                }
+                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
+            } catch (error) {
+                console.error(`Executor attempt ${i + 1} threw an error:`, error);
+            }
+        }
+        throw new Error('Executor failed after multiple retries.');
+    }
+    
+    async function runExecutorWithRetry(task, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const result = await runExecutor(task);
+                if (result) {
+                    return result;
+                }
+                console.warn(`Executor attempt ${i + 1} failed. Retrying...`);
+            } catch (error) {
+                console.error(`Executor attempt ${i + 1} threw an error:`, error);
+            }
+        }
+        throw new Error('Executor failed after multiple retries.');
+    }
 
 async function runExecutor(task){
   const provider = pickProvider();
@@ -1928,7 +2241,7 @@ async function importFromFile(file){
     showToast('Importing file...', 'info', 2000);
     
     const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, {type:'array'});
+    const wb = XLSX.read(data, {type:'array', cellStyles:true});
     
     if(!wb.SheetNames || wb.SheetNames.length === 0) {
       showToast('Invalid Excel file: no sheets found', 'error');
@@ -1954,7 +2267,7 @@ function exportXLSX(){
       showToast('No workbook to export', 'warning');
       return;
     }
-    XLSX.writeFile(AppState.wb, 'workbook.xlsx');
+    XLSX.writeFile(AppState.wb, 'workbook.xlsx', {cellStyles:true});
     showToast('Workbook exported successfully', 'success', 2000);
   } catch(error) {
     console.error('XLSX export failed:', error);
@@ -2111,10 +2424,14 @@ function bindUI(){
   if(dryRunToggle) {
     dryRunToggle.addEventListener('change', (e)=>{ AppState.dryRun = e.target.checked; });
   }
+  const autoExecuteToggle = document.getElementById('auto-execute-toggle');
+ if (autoExecuteToggle) {
+   autoExecuteToggle.addEventListener('change', (e) => { AppState.autoExecute = e.target.checked; });
+ }
   
   const modelSelect = document.getElementById('model-select');
   if(modelSelect) {
-    modelSelect.addEventListener('change', (e)=>{ 
+    modelSelect.addEventListener('change', (e)=>{
       AppState.selectedModel = e.target.value; 
       const provider = pickProvider();
       const model = getSelectedModel();
@@ -2173,25 +2490,25 @@ function bindUI(){
     addSheetBtn.addEventListener('click', addNewSheet);
   }
   
-  // Bind spreadsheet control buttons
+  // Bind spreadsheet control buttons (Excel-like: operate relative to active cell)
   const insertRowBtn = document.getElementById('insert-row-btn');
   if(insertRowBtn) {
-    insertRowBtn.addEventListener('click', insertRowAtEnd);
+    insertRowBtn.addEventListener('click', insertRowAtSelection);
   }
   
   const insertColBtn = document.getElementById('insert-col-btn');
   if(insertColBtn) {
-    insertColBtn.addEventListener('click', insertColumnAtEnd);
+    insertColBtn.addEventListener('click', insertColumnAtSelectionLeft);
   }
   
   const deleteRowBtn = document.getElementById('delete-row-btn');
   if(deleteRowBtn) {
-    deleteRowBtn.addEventListener('click', deleteLastRow);
+    deleteRowBtn.addEventListener('click', deleteSelectedRow);
   }
   
   const deleteColBtn = document.getElementById('delete-col-btn');
   if(deleteColBtn) {
-    deleteColBtn.addEventListener('click', deleteLastColumn);
+    deleteColBtn.addEventListener('click', deleteSelectedColumn);
   }
   
   // Bind new Excel-like UI elements
@@ -2231,6 +2548,215 @@ function bindUI(){
   
   // Initialize keyboard shortcuts
   initKeyboardShortcuts();
+
+  // Bind formatting buttons
+  document.getElementById('format-bold').addEventListener('click', () => applyFormat('bold'));
+  document.getElementById('format-italic').addEventListener('click', () => applyFormat('italic'));
+  document.getElementById('format-underline').addEventListener('click', () => applyFormat('underline'));
+  document.getElementById('format-color').addEventListener('input', (e) => applyFormat('color', e.target.value));
+  initRibbonTabs();
+  document.getElementById('sort-btn').addEventListener('click', showSortModal);
+  document.getElementById('chart-btn').addEventListener('click', showChartModal);
+  document.getElementById('comment-btn').addEventListener('click', showCommentModal);
+  document.getElementById('spreadsheet').addEventListener('scroll', renderSpreadsheetTable);
+}
+
+function showSortModal() {
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  let options = '';
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const colLetter = XLSX.utils.encode_col(c);
+    options += `<option value="${c}">${colLetter}</option>`;
+  }
+
+  const modal = new Modal();
+  modal.show({
+    title: 'Sort Range',
+    content: `
+      <div class="space-y-4">
+        <div>
+          <label for="sort-column" class="block text-sm font-medium text-gray-700">Sort by column</label>
+          <select id="sort-column" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+            ${options}
+          </select>
+        </div>
+        <div>
+          <label for="sort-order" class="block text-sm font-medium text-gray-700">Order</label>
+          <select id="sort-order" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+      </div>
+    `,
+    buttons: [
+      { text: 'Cancel', action: 'cancel' },
+      {
+        text: 'Sort',
+        action: 'sort',
+        primary: true,
+        onClick: () => {
+          const column = document.getElementById('sort-column').value;
+          const order = document.getElementById('sort-order').value;
+          sortData(parseInt(column), order);
+        }
+      }
+    ]
+  });
+}
+
+function sortData(column, order) {
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const data = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      row.push(cell ? cell.v : null);
+    }
+    data.push(row);
+  }
+
+  data.sort((a, b) => {
+    const valA = a[column];
+    const valB = b[column];
+    if (valA < valB) {
+      return order === 'asc' ? -1 : 1;
+    }
+    if (valA > valB) {
+      return order === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  for (let r = 0; r < data.length; r++) {
+    for (let c = 0; c < data[r].length; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r: r + range.s.r, c: c + range.s.c });
+      if (data[r][c] !== null) {
+        ws[cellRef] = { t: 's', v: data[r][c] };
+      } else {
+        delete ws[cellRef];
+      }
+    }
+  }
+
+  renderSpreadsheetTable();
+  persistSnapshot();
+}
+
+function showChartModal() {
+  const modal = new Modal();
+  modal.show({
+    title: 'Create Chart',
+    content: `
+      <div class="space-y-4">
+        <div>
+          <label for="chart-type" class="block text-sm font-medium text-gray-700">Chart Type</label>
+          <select id="chart-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+            <option value="pie">Pie</option>
+          </select>
+        </div>
+        <div>
+          <label for="chart-range" class="block text-sm font-medium text-gray-700">Data Range</label>
+          <input type="text" id="chart-range" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., A1:B5">
+        </div>
+        <canvas id="chart-preview" width="400" height="200"></canvas>
+      </div>
+    `,
+    buttons: [
+      { text: 'Cancel', action: 'cancel' },
+      {
+        text: 'Create',
+        action: 'create',
+        primary: true,
+        onClick: () => {
+          const chartType = document.getElementById('chart-type').value;
+          const dataRange = document.getElementById('chart-range').value;
+          createChart(chartType, dataRange);
+        }
+      }
+    ]
+  });
+}
+
+function createChart(chartType, dataRange) {
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(dataRange);
+  const data = [];
+  const labels = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const labelCell = ws[XLSX.utils.encode_cell({ r, c: range.s.c })];
+    labels.push(labelCell ? labelCell.v : null);
+    const dataCell = ws[XLSX.utils.encode_cell({ r, c: range.s.c + 1 })];
+    data.push(dataCell ? dataCell.v : null);
+  }
+
+  const ctx = document.getElementById('chart-preview').getContext('2d');
+  new Chart(ctx, {
+    type: chartType,
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Dataset',
+        data: data,
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function showCommentModal() {
+  const cellRef = XLSX.utils.encode_cell(AppState.activeCell);
+  const ws = getWorksheet();
+  const cell = ws[cellRef];
+  const existingComment = cell && cell.c ? cell.c.t : '';
+
+  const modal = new Modal();
+  modal.show({
+    title: `Comment on ${cellRef}`,
+    content: `
+      <textarea id="comment-input" class="w-full h-24 p-2 border border-gray-300 rounded-md">${existingComment}</textarea>
+    `,
+    buttons: [
+      { text: 'Cancel', action: 'cancel' },
+      {
+        text: 'Save',
+        action: 'save',
+        primary: true,
+        onClick: () => {
+          const comment = document.getElementById('comment-input').value;
+          addComment(cellRef, comment);
+        }
+      }
+    ]
+  });
+}
+
+function addComment(cellRef, comment) {
+  const ws = getWorksheet();
+  if (!ws[cellRef]) {
+    ws[cellRef] = { t: 'z', v: '' };
+  }
+  if (!ws[cellRef].c) {
+    ws[cellRef].c = {};
+  }
+  ws[cellRef].c.t = comment;
+  ws[cellRef].c.a = 'Kilo Code'; // Author
+  renderSpreadsheetTable();
+  persistSnapshot();
 }
 
 // Enhanced initialization with loading state
@@ -2261,8 +2787,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     renderSpreadsheetTable();
     drawTasks();
     bindUI();
-    initDraggableDivider();
-    restorePanelLayout();
     updateProviderStatus(); // Update button states based on available keys
     
     // Add fade-in animation to main content
@@ -2277,10 +2801,131 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       showToast(`AI Excel Editor ready! Using ${provider} for AI features.`, 'success', 3000);
     } else {
       showToast('AI Excel Editor ready! Set your API keys to enable AI features.', 'success', 3000);
-    }
-  }catch(e){
-    console.error("Initialization failed", e);
-    hideLoadingOverlay();
-    showToast('Error initializing application: ' + e.message, 'error');
+           }
+      if (isFirstVisit()) {
+          showWelcomeModal();
+          localStorage.setItem('hasVisited', 'true');
+      }
+         }catch(e){
+           console.error("Initialization failed", e);
+           hideLoadingOverlay();
+           showToast('Error initializing application: ' + e.message, 'error');
+         }
+       });
+
+function applyFormat(type, value) {
+  const ws = getWorksheet();
+  const cell = ws[XLSX.utils.encode_cell(AppState.activeCell)];
+
+  if (!cell) {
+    ws[XLSX.utils.encode_cell(AppState.activeCell)] = { t: 'z', v: '' };
   }
-});
+
+  if (!cell.s) {
+    cell.s = {};
+  }
+
+  switch (type) {
+    case 'bold':
+      cell.s.bold = !cell.s.bold;
+      break;
+    case 'italic':
+      cell.s.italic = !cell.s.italic;
+      break;
+    case 'underline':
+      cell.s.underline = !cell.s.underline;
+      break;
+    case 'color':
+      cell.s.fill = {
+        fgColor: {
+          rgb: value.substring(1)
+        }
+      };
+      break;
+  }
+
+  renderSpreadsheetTable();
+  persistSnapshot();
+}
+
+function isFirstVisit() {
+    return !localStorage.getItem('hasVisited');
+}
+
+function showFirstTimeHelp() {
+    if (isFirstVisit()) {
+        showHelpModal();
+        localStorage.setItem('hasVisited', 'true');
+    }
+}
+
+function showWelcomeModal() {
+    const modal = new Modal();
+    modal.show({
+        title: 'Welcome to the AI Excel Editor!',
+        content: `
+            <div class="space-y-4 text-sm">
+                <p>This powerful tool combines a familiar spreadsheet interface with advanced AI capabilities to help you automate tasks, analyze data, and streamline your workflows.</p>
+                <p><strong>Getting Started:</strong></p>
+                <ul class="list-disc list-inside space-y-2">
+                    <li><strong>Set Your API Key:</strong> Click on "Set OpenAI Key" or "Set Gemini Key" to connect to your preferred AI provider.</li>
+                    <li><strong>Interact with the AI:</strong> Use the chat panel to give commands like "Create a budget for Q3" or "Summarize sales data."</li>
+                    <li><strong>Explore the Ribbon:</strong> The ribbon menu provides familiar Excel-like formatting and data manipulation tools.</li>
+                </ul>
+                <p>For a detailed guide and more examples, click the "Help" button at any time.</p>
+            </div>
+        `,
+        buttons: [{ text: 'Get Started', action: 'close', primary: true }],
+        size: 'lg'
+    });
+}
+
+function initRibbonTabs() {
+    const tabs = document.querySelectorAll('.ribbon-tab');
+    const ribbonContent = document.getElementById('ribbon-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Hide all ribbon content
+            ribbonContent.querySelectorAll('[id$="-ribbon"]').forEach(content => {
+                content.style.display = 'none';
+            });
+
+            // Show the selected tab's content
+            const tabName = tab.dataset.tab;
+            const contentToShow = document.getElementById(`${tabName}-ribbon`);
+            if (contentToShow) {
+                contentToShow.style.display = 'flex';
+            }
+          });
+          
+          function cutCell(cellRef) {
+            copyCell(cellRef);
+            const ws = getWorksheet();
+            delete ws[cellRef];
+            renderSpreadsheetTable();
+            persistSnapshot();
+          }
+          
+          
+          
+          
+          function copyCell(cellRef) {
+            const ws = getWorksheet();
+            AppState.clipboard = ws[cellRef];
+          }
+          
+          function pasteCell(cellRef) {
+            if (!AppState.clipboard) {
+              return;
+            }
+            const ws = getWorksheet();
+            ws[cellRef] = AppState.clipboard;
+            renderSpreadsheetTable();
+            persistSnapshot();
+          }
+    });
+}
