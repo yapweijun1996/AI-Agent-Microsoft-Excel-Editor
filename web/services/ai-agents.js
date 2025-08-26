@@ -3,6 +3,8 @@
 import { AppState } from '../core/state.js';
 import { log, getSampleDataFromSheet, extractFirstJson, uuid } from '../utils/index.js';
 import { pickProvider, getSelectedModel } from './api-keys.js';
+import { getWorksheet } from '../spreadsheet/workbook-manager.js';
+import { showToast } from '../ui/toast.js';
 
 export async function fetchOpenAI(apiKey, messages, model = 'gpt-4o') {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
