@@ -9,6 +9,17 @@ export const STORAGE_KEYS = {
   panelLayout: 'panelLayout'
 };
 
+// Persisted UI preferences
+const AUTO_EXECUTE_KEY = 'autoExecute';
+let initialAutoExecute = true;
+try {
+  const stored = localStorage.getItem(AUTO_EXECUTE_KEY);
+  if (stored !== null) initialAutoExecute = stored === 'true';
+} catch {
+  // localStorage may be unavailable in some contexts; default to true
+  initialAutoExecute = true;
+}
+
 export const AppState = {
   wb: null,
   activeSheet: 'Sheet1',
@@ -20,7 +31,7 @@ export const AppState = {
   keys: { openai: null, gemini: null },
   dryRun: false,
   selectedModel: 'auto', // auto, openai:gpt-4o, gemini:gemini-2.5-flash, etc.
-  autoExecute: true,
+  autoExecute: initialAutoExecute,
   history: [],
   historyIndex: -1,
   maxHistorySize: 50,

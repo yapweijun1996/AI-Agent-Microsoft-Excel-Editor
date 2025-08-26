@@ -3,6 +3,7 @@
 import { AppState } from '../core/state.js';
 import { db } from '../db/indexeddb.js';
 import { log } from '../utils/index.js';
+export { expandRefForCell } from '../utils/index.js';
 import { showToast } from '../ui/toast.js';
 import { saveToHistory } from './history-manager.js';
 
@@ -55,12 +56,4 @@ export async function persistSnapshot() {
 
 export function getWorksheet() { return AppState.wb.Sheets[AppState.activeSheet]; }
 
-export function expandRefForCell(ws, addr) {
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-  const cell = XLSX.utils.decode_cell(addr);
-  range.s.r = Math.min(range.s.r, cell.r);
-  range.s.c = Math.min(range.s.c, cell.c);
-  range.e.r = Math.max(range.e.r, cell.r);
-  range.e.c = Math.max(range.e.c, cell.c);
-  ws['!ref'] = XLSX.utils.encode_range(range);
-}
+/* expandRefForCell consolidated in utils/index.js */

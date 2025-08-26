@@ -75,3 +75,14 @@ export function getSampleDataFromSheet(ws) {
   const truncated = range.e.r > range.s.r + maxSampleRows - 1 || range.e.c > range.s.c + maxSampleCols - 1;
   return sample.join('\n') + (truncated ? '\n...(truncated)' : '');
 }
+/* global XLSX */
+// Spreadsheet helpers
+export function expandRefForCell(ws, addr) {
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const cell = XLSX.utils.decode_cell(addr);
+  range.s.r = Math.min(range.s.r, cell.r);
+  range.s.c = Math.min(range.s.c, cell.c);
+  range.e.r = Math.max(range.e.r, cell.r);
+  range.e.c = Math.max(range.e.c, cell.c);
+  ws['!ref'] = XLSX.utils.encode_range(range);
+}

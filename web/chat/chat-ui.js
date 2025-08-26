@@ -125,14 +125,30 @@ export async function onSend() {
       if (AppState.autoExecute) {
         // Step 3: Orchestration
         updateTypingMessage('Planning task execution order...', 'orchestrator', '3/4 steps');
-        const orchestration = await runOrchestrator(tasks);
-        
+        let orchestration = null;
+        try {
+          orchestration = await runOrchestrator(tasks);
+        } catch (e) {
+          console.error('Orchestrator error:', e);
+        }
+
+        // Prepare tasks to execute: prefer orchestrated order if available
+        let tasksToExecute = tasks;
+        if (orchestration && Array.isArray(orchestration.executionPlan)) {
+          const fromPlan = orchestration.executionPlan
+            .sort((a, b) => (a.order || 0) - (b.order || 0))
+            .map(p => AppState.tasks.find(t => t.id === p.taskId))
+            .filter(Boolean);
+          if (fromPlan.length) tasksToExecute = fromPlan;
+        }
+
         // Step 4: Execution
         updateTypingMessage('Executing tasks...', 'executor', '4/4 steps');
         setTimeout(() => {
           AppState.messages = AppState.messages.filter(m => !m.isTyping);
-          executeTasks(orchestration.executionPlan.map(p => AppState.tasks.find(t => t.id === p.taskId)));
-        }, 500);
+          // Pass orchestration so executeTasks can optionally skip re-orchestrating
+          executeTasks(tasksToExecute, orchestration);
+        }, 300);
       }
     } else {
       // Fallback for simple commands that don't generate tasks

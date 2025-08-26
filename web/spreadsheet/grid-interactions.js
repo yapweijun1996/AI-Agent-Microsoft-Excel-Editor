@@ -3,7 +3,7 @@ import { getWorksheet, persistSnapshot } from './workbook-manager.js';
 import { saveToHistory } from './history-manager.js';
 import { renderSpreadsheetTable, applySelectionHighlight } from './grid-renderer.js';
 import { showToast } from '../ui/toast.js';
-import { parseCellValue } from '../utils/index.js';
+import { parseCellValue, expandRefForCell } from '../utils/index.js';
 /* global XLSX */
 
 // Selection state for range selection
@@ -15,15 +15,6 @@ let selectionState = {
 };
 
 // Cell & Grid Logic
-export function expandRefForCell(ws, addr) {
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-  const cell = XLSX.utils.decode_cell(addr);
-  range.s.r = Math.min(range.s.r, cell.r);
-  range.s.c = Math.min(range.s.c, cell.c);
-  range.e.r = Math.max(range.e.r, cell.r);
-  range.e.c = Math.max(range.e.c, cell.c);
-  ws['!ref'] = XLSX.utils.encode_range(range);
-}
 
 export function updateCell(addr, value) {
   const ws = getWorksheet();

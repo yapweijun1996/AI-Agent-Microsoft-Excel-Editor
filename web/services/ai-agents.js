@@ -12,6 +12,17 @@ export async function fetchOpenAI(apiKey, messages, model = 'gpt-4o') {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({ model, messages })
   });
+  if (!res.ok) {
+    let bodyText = '';
+    try { bodyText = await res.text(); } catch {}
+    let bodyJson = null;
+    try { bodyJson = JSON.parse(bodyText); } catch {}
+    const message = bodyJson?.error?.message || res.statusText || 'OpenAI API error';
+    const error = new Error(message);
+    error.status = res.status;
+    error.body = bodyJson || bodyText;
+    throw error;
+  }
   return res.json();
 }
 
@@ -24,6 +35,17 @@ export async function fetchGemini(apiKey, messages, model = 'gemini-2.5-flash') 
       contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }))
     })
   });
+  if (!res.ok) {
+    let bodyText = '';
+    try { bodyText = await res.text(); } catch {}
+    let bodyJson = null;
+    try { bodyJson = JSON.parse(bodyText); } catch {}
+    const message = bodyJson?.error?.message || res.statusText || 'Gemini API error';
+    const error = new Error(message);
+    error.status = res.status;
+    error.body = bodyJson || bodyText;
+    throw error;
+  }
   return res.json();
 }
 
@@ -121,6 +143,7 @@ EXAMPLES:
     }
   } catch (error) {
     console.error('Intent Agent failed:', error);
+    showToast('Intent analysis unavailable, proceeding with task planning.', 'warning');
     // Default to needing tasks on error
     return { needsTasks: true, intent: 'spreadsheet_operation', confidence: 0.5 };
   }
@@ -335,17 +358,28 @@ IMPORTANT:
   const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
   let data;
   const selectedModel = getSelectedModel();
-  if (provider === 'openai') { data = await fetchOpenAI(AppState.keys.openai, messages, selectedModel); }
-  else { data = await fetchGemini(AppState.keys.gemini, messages, selectedModel); }
-  let text = '';
   try {
-    if (provider === 'openai') { text = data.choices?.[0]?.message?.content || ''; }
-    else { text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || ''; }
-  } catch { text = ''; }
-  let obj = null;
-  try { obj = JSON.parse(text); } catch { obj = extractFirstJson(text); }
-  log('Executor raw', text);
-  return obj;
+    if (provider === 'openai') {
+      data = await fetchOpenAI(AppState.keys.openai, messages, selectedModel);
+    } else {
+      data = await fetchGemini(AppState.keys.gemini, messages, selectedModel);
+    }
+    let text = '';
+    if (provider === 'openai') {
+      text = data.choices?.[0]?.message?.content || '';
+    } else {
+      text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+    }
+
+    let obj = null;
+    try { obj = JSON.parse(text); } catch { obj = extractFirstJson(text); }
+    log('Executor raw', text);
+    return obj;
+  } catch (error) {
+    console.error('Executor Agent failed:', error);
+    showToast('Executor Agent failed to generate operations. See console for details.', 'error');
+    return null;
+  }
 }
 
 export async function runValidator(executorObj, task) {
@@ -504,6 +538,7 @@ IMPORTANT: If the executor result fails schema validation (missing edits array, 
 
   } catch (error) {
     console.error('Validator Agent failed:', error);
+    showToast('Validator Agent unavailable - proceeding with caution.', 'warning');
     return {
       valid: true, // Don't block on validator failure - allow operation to proceed with warnings
       confidence: 0.2,

@@ -575,36 +575,51 @@ window.executeTask = async function (id) {
   }
 };
 
-export async function executeTasks(tasks) {
+export async function executeTasks(tasks, orchestration = null) {
   if (!tasks || tasks.length === 0) return;
 
-  showToast(`Orchestrating execution of ${tasks.length} tasks...`, 'info');
+  // If a precomputed orchestration is provided (from chat flow), use it; else compute here
+  if (orchestration && Array.isArray(orchestration.executionPlan)) {
+    showToast(`Executing ${tasks.length} task(s) with precomputed plan...`, 'info', 3000);
+  } else {
+    showToast(`Orchestrating execution of ${tasks.length} task(s)...`, 'info');
+    try {
+      orchestration = await runOrchestrator(tasks);
+      log('Orchestration plan:', orchestration);
+    } catch (error) {
+      console.error('Task orchestration failed:', error);
+      orchestration = null;
+    }
+  }
 
+  // Optional informational toasts
+  if (orchestration?.riskAssessment) {
+    showToast(`Orchestration risk: ${orchestration.riskAssessment}`, 'info', 3000);
+  }
+  if (typeof orchestration?.estimatedTime === 'number') {
+    showToast(`Estimated time: ${(orchestration.estimatedTime / 1000).toFixed(1)}s`, 'info', 3000);
+  }
+
+  // Determine ordered tasks: prefer orchestration plan when available
+  let sortedTasks = tasks;
+  if (Array.isArray(orchestration?.executionPlan) && orchestration.executionPlan.length) {
+    sortedTasks = orchestration.executionPlan
+      .slice()
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map(plan => tasks.find(t => t.id === plan.taskId))
+      .filter(Boolean);
+  }
+
+  // Execute sequentially respecting the determined order
   try {
-    const orchestration = await runOrchestrator(tasks);
-    log('Orchestration plan:', orchestration);
-
-    if (orchestration.executionPlan) {
-      const sortedTasks = orchestration.executionPlan
-        .sort((a, b) => a.order - b.order)
-        .map(plan => tasks.find(t => t.id === plan.taskId))
-        .filter(Boolean);
-
-      for (const task of sortedTasks) {
-        await executeTask(task.id);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-
-    showToast('Task orchestration completed', 'success');
-
-  } catch (error) {
-    console.error('Task orchestration failed:', error);
-    showToast('Orchestration failed, executing tasks sequentially', 'warning');
-
-    for (const task of tasks) {
+    for (const task of sortedTasks) {
       await executeTask(task.id);
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
+    showToast('Task orchestration completed', 'success');
+  } catch (error) {
+    console.error('Task execution loop failed:', error);
+    showToast('Task execution encountered an error', 'error');
   }
 };
 
