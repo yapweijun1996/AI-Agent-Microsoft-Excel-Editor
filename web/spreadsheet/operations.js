@@ -63,7 +63,7 @@ async function applyEdit(edit, ws) {
       if (!cell || value === undefined) {
         throw new Error('setCell operation requires cell and value');
       }
-      updateCell(cell, value);
+      updateCell(cell, String(value));
       break;
 
     case 'setFormula':
