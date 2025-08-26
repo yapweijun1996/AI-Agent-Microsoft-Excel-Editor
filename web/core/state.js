@@ -11,6 +11,8 @@ export const STORAGE_KEYS = {
 
 // Persisted UI preferences
 const AUTO_EXECUTE_KEY = 'autoExecute';
+const REDUCED_MOTION_KEY = 'reducedMotion';
+
 let initialAutoExecute = true;
 try {
   const stored = localStorage.getItem(AUTO_EXECUTE_KEY);
@@ -18,6 +20,19 @@ try {
 } catch {
   // localStorage may be unavailable in some contexts; default to true
   initialAutoExecute = true;
+}
+
+let initialReducedMotion = false;
+try {
+  const stored = localStorage.getItem(REDUCED_MOTION_KEY);
+  if (stored !== null) {
+    initialReducedMotion = stored === 'true';
+  } else {
+    // Check system preference
+    initialReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+} catch {
+  initialReducedMotion = false;
 }
 
 export const AppState = {
@@ -32,6 +47,7 @@ export const AppState = {
   dryRun: false,
   selectedModel: 'auto', // auto, openai:gpt-4o, gemini:gemini-2.5-flash, etc.
   autoExecute: initialAutoExecute,
+  reducedMotion: initialReducedMotion,
   history: [],
   historyIndex: -1,
   maxHistorySize: 50,

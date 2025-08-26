@@ -578,6 +578,12 @@ window.executeTask = async function (id) {
 export async function executeTasks(tasks, orchestration = null) {
   if (!tasks || tasks.length === 0) return;
 
+  const startTime = Date.now();
+  let completedCount = 0;
+  let failedCount = 0;
+  let blockedCount = 0;
+  const results = [];
+
   // If a precomputed orchestration is provided (from chat flow), use it; else compute here
   if (orchestration && Array.isArray(orchestration.executionPlan)) {
     showToast(`Executing ${tasks.length} task(s) with precomputed plan...`, 'info', 3000);
@@ -613,13 +619,55 @@ export async function executeTasks(tasks, orchestration = null) {
   // Execute sequentially respecting the determined order
   try {
     for (const task of sortedTasks) {
+      const taskStartTime = Date.now();
       await executeTask(task.id);
+      const taskEndTime = Date.now();
+      
+      // Refresh task status from AppState
+      const updatedTask = AppState.tasks.find(t => t.id === task.id);
+      if (updatedTask) {
+        if (updatedTask.status === 'done') {
+          completedCount++;
+          results.push({
+            title: updatedTask.title,
+            status: 'completed',
+            duration: taskEndTime - taskStartTime,
+            result: updatedTask.result
+          });
+        } else if (updatedTask.status === 'failed') {
+          failedCount++;
+          results.push({
+            title: updatedTask.title,
+            status: 'failed',
+            error: updatedTask.result,
+            duration: taskEndTime - taskStartTime
+          });
+        } else if (updatedTask.status === 'blocked') {
+          blockedCount++;
+          results.push({
+            title: updatedTask.title,
+            status: 'blocked',
+            issue: updatedTask.result,
+            duration: taskEndTime - taskStartTime
+          });
+        }
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 500));
     }
+    
+    const totalTime = Date.now() - startTime;
     showToast('Task orchestration completed', 'success');
+    
+    // Add execution summary to chat
+    addExecutionSummaryToChat(results, totalTime, completedCount, failedCount, blockedCount);
+    
   } catch (error) {
     console.error('Task execution loop failed:', error);
     showToast('Task execution encountered an error', 'error');
+    
+    // Add error summary to chat
+    addExecutionSummaryToChat(results, Date.now() - startTime, completedCount, failedCount, blockedCount, error);
   }
 };
 
@@ -631,6 +679,105 @@ export async function autoExecuteTasks() {
     showToast(`Auto-executing ${pendingTasks.length} task(s)...`, 'info');
     await executeTasks(pendingTasks);
   }
+}
+
+// Add execution summary to chat
+function addExecutionSummaryToChat(results, totalTime, completedCount, failedCount, blockedCount, error = null) {
+  // Only add to chat if we have chat messages (meaning it was initiated from chat)
+  if (!AppState.messages || AppState.messages.length === 0) return;
+  
+  const totalTasks = results.length;
+  let content = '';
+  let buttons = [];
+  let structuredData = null;
+  
+  if (error) {
+    content = `❌ **Task Execution Failed**\n\nExecution was interrupted: ${error.message}\n\nCompleted: ${completedCount}, Failed: ${failedCount}, Blocked: ${blockedCount}`;
+    
+    buttons = [
+      {
+        label: 'Retry Failed Tasks',
+        action: 'retryTasks',
+        type: 'primary',
+        icon: '🔄'
+      },
+      {
+        label: 'View Tasks',
+        action: 'viewTasks',
+        type: 'secondary',
+        icon: '📋'
+      }
+    ];
+  } else {
+    // Success summary
+    const timeStr = (totalTime / 1000).toFixed(1);
+    content = `✅ **Task Execution Complete**\n\nExecuted ${totalTasks} tasks in ${timeStr}s`;
+    
+    if (completedCount > 0) content += `\n• ✅ ${completedCount} completed successfully`;
+    if (failedCount > 0) content += `\n• ❌ ${failedCount} failed`;
+    if (blockedCount > 0) content += `\n• 🚫 ${blockedCount} blocked`;
+    
+    // Add buttons based on results
+    buttons = [];
+    if (failedCount > 0 || blockedCount > 0) {
+      buttons.push({
+        label: 'Retry Failed Tasks',
+        action: 'retryTasks',
+        type: 'danger',
+        icon: '🔄'
+      });
+    }
+    
+    buttons.push({
+      label: 'View Tasks',
+      action: 'viewTasks',
+      type: 'secondary',
+      icon: '📋'
+    });
+    
+    if (completedCount > 0) {
+      buttons.push({
+        label: 'Clear Completed',
+        action: 'clearCompleted',
+        type: 'secondary',
+        icon: '🗑️'
+      });
+    }
+  }
+  
+  // Create structured data for detailed results
+  if (results.length > 0) {
+    structuredData = {
+      headers: ['Task', 'Status', 'Duration'],
+      rows: results.map(r => [
+        r.title.length > 30 ? r.title.substring(0, 30) + '...' : r.title,
+        r.status === 'completed' ? '✅ Done' : 
+        r.status === 'failed' ? '❌ Failed' : '🚫 Blocked',
+        `${(r.duration / 1000).toFixed(1)}s`
+      ])
+    };
+  }
+  
+  const summaryMsg = {
+    role: 'assistant',
+    content: content,
+    timestamp: Date.now(),
+    agentType: 'executor',
+    buttons: buttons,
+    dataType: structuredData ? 'table' : null,
+    structuredData: structuredData,
+    taskStatus: {
+      total: AppState.tasks.length,
+      completed: AppState.tasks.filter(t => t.status === 'done').length
+    }
+  };
+  
+  AppState.messages.push(summaryMsg);
+  
+  // Import drawChat dynamically to avoid circular dependency
+  import('../chat/chat-ui.js').then(({ drawChat }) => {
+    drawChat();
+  }).catch(console.error);
 }
 
 // Also expose to window for HTML onclick handlers

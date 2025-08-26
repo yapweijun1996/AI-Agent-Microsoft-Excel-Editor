@@ -4,6 +4,7 @@ import { Modal } from './modal.js';
 import { log } from '../utils/index.js';
 import { saveApiKey } from '../services/api-keys.js';
 import { showToast } from './toast.js';
+import { AppState } from '../core/state.js';
 
 export function showApiKeyModal(provider) {
   log(`Opening API key modal for ${provider}`);
@@ -108,6 +109,87 @@ export function showHelpModal() {
   });
 }
 
+export function showSettingsModal() {
+  const modal = new Modal();
+  modal.show({
+    title: 'Settings & Preferences',
+    content: `
+      <div class="space-y-6">
+        <!-- API Configuration -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-3">AI Configuration</h4>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="font-medium text-gray-900">OpenAI API Key</div>
+                <div class="text-sm text-gray-600">Enable GPT-4 powered features</div>
+              </div>
+              <button onclick="showApiKeyModal('OpenAI')" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                Configure
+              </button>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div class="font-medium text-gray-900">Gemini API Key</div>
+                <div class="text-sm text-gray-600">Enable Gemini powered features</div>
+              </div>
+              <button onclick="showApiKeyModal('Gemini')" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                Configure
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accessibility -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-3">Accessibility</h4>
+          <div class="space-y-3">
+            <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer">
+              <div>
+                <div class="font-medium text-gray-900">Reduced Motion</div>
+                <div class="text-sm text-gray-600">Disable animations and transitions</div>
+              </div>
+              <input type="checkbox" id="reduced-motion-toggle" class="rounded border-gray-300" ${AppState.reducedMotion ? 'checked' : ''}>
+            </label>
+          </div>
+        </div>
+
+        <!-- Task Execution -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-3">Task Execution</h4>
+          <div class="space-y-3">
+            <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer">
+              <div>
+                <div class="font-medium text-gray-900">Auto-execute Tasks</div>
+                <div class="text-sm text-gray-600">Automatically run tasks after planning</div>
+              </div>
+              <input type="checkbox" id="auto-execute-toggle" class="rounded border-gray-300" ${AppState.autoExecute ? 'checked' : ''}>
+            </label>
+          </div>
+        </div>
+      </div>`,
+    buttons: [
+      { text: 'Cancel', action: 'cancel' },
+      {
+        text: 'Save Settings', action: 'save', primary: true, onClick: () => {
+          // Save reduced motion preference
+          const reducedMotion = document.getElementById('reduced-motion-toggle').checked;
+          AppState.reducedMotion = reducedMotion;
+          localStorage.setItem('reducedMotion', reducedMotion);
+          
+          // Save auto-execute preference
+          const autoExecute = document.getElementById('auto-execute-toggle').checked;
+          AppState.autoExecute = autoExecute;
+          localStorage.setItem('autoExecute', autoExecute);
+          
+          showToast('Settings saved successfully', 'success');
+        }
+      }
+    ],
+    size: 'lg'
+  });
+}
+
 export function showWelcomeModal() {
   const modal = new Modal();
   modal.show({
@@ -189,3 +271,8 @@ export function showCommentModal() {
     buttons: [{ text: 'Close', action: 'close', primary: true }]
   });
 }
+
+// Expose to window for global access
+window.showWelcomeModal = showWelcomeModal;
+window.showSettingsModal = showSettingsModal;
+window.showApiKeyModal = showApiKeyModal;
