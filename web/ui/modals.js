@@ -272,6 +272,19 @@ export function showCommentModal() {
   });
 }
 
+// Generic showModal function for convenience
+export function showModal(title, content, options = {}) {
+  const modal = new Modal();
+  const modalElement = modal.show({
+    title,
+    content,
+    buttons: options.buttons || [{ text: 'Close', action: 'close', primary: true }],
+    size: options.size || 'md',
+    closable: options.closable !== false
+  });
+  return modalElement;
+}
+
 // Expose to window for global access
 window.showWelcomeModal = showWelcomeModal;
 window.showSettingsModal = showSettingsModal;
