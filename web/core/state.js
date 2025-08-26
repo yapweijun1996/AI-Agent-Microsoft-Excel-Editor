@@ -20,7 +20,7 @@ export const AppState = {
   keys: { openai: null, gemini: null },
   dryRun: false,
   selectedModel: 'auto', // auto, openai:gpt-4o, gemini:gemini-2.5-flash, etc.
-  autoExecute: false,
+  autoExecute: true,
   history: [],
   historyIndex: -1,
   maxHistorySize: 50,
