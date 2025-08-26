@@ -23,6 +23,17 @@ function updateAddressBar(addr) {
   }
 }
 
+// Helper function to save current cell value if changed
+function saveCurrentCellValue(addr, input, ws) {
+  if (input && input.value !== undefined) {
+    const currentCell = ws[addr];
+    const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
+    if (String(input.value) !== String(currentValue)) {
+      updateCell(addr, input.value);
+    }
+  }
+}
+
 // Move to a specific cell and focus it
 function moveToCell(row, col) {
   const addr = XLSX.utils.encode_cell({ r: row, c: col });
@@ -807,6 +818,7 @@ function initializeGridGlobals() {
     updateCell,
     updateAddressBar,
     moveToCell,
+    saveCurrentCellValue,
     handleCellKeydown: function (event, addr) {
       const cell = XLSX.utils.decode_cell(addr);
       const ws = getWorksheet();
@@ -832,25 +844,13 @@ function initializeGridGlobals() {
         case 'Enter':
           event.preventDefault();
           // Save current cell value before moving
-          if (event.target && event.target.value !== undefined) {
-            const currentCell = ws[addr];
-            const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
-            if (String(event.target.value) !== String(currentValue)) {
-              updateCell(addr, event.target.value);
-            }
-          }
+          saveCurrentCellValue(addr, event.target, ws);
           moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
           break;
         case 'Tab':
           event.preventDefault();
           // Save current cell value before moving
-          if (event.target && event.target.value !== undefined) {
-            const currentCell = ws[addr];
-            const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
-            if (String(event.target.value) !== String(currentValue)) {
-              updateCell(addr, event.target.value);
-            }
-          }
+          saveCurrentCellValue(addr, event.target, ws);
           if (event.shiftKey) {
             moveToCell(cell.r, Math.max(0, cell.c - 1));
           } else {
