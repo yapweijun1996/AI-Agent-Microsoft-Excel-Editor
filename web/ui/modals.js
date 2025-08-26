@@ -12,14 +12,27 @@ export function showApiKeyModal(provider) {
     title: `Set ${provider} API Key`,
     content: `
       <div class="space-y-4">
-        <p class="text-sm text-gray-600">Enter your ${provider} API key. It will be stored in memory; toggle persistence if desired.</p>
-        <div class="space-y-2">
-          <input type="password" id="api-key-input" placeholder="Enter API key..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <p class="text-xs text-gray-500">Get your API key from: ${provider === 'OpenAI' ? 'https://platform.openai.com/api-keys' : 'https://aistudio.google.com/app/apikey'}</p>
+        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+          <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div class="text-sm text-blue-800">
+            <p class="font-medium mb-1">API Key Setup</p>
+            <p>Enter your ${provider} API key to enable AI-powered spreadsheet automation. The key will be stored securely in your browser.</p>
+          </div>
         </div>
-        <label class="flex items-center space-x-2 text-xs text-gray-600">
+        <div class="space-y-2">
+          <input type="password" id="api-key-input" placeholder="Enter API key..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <div class="text-xs text-gray-600">
+            <p class="mb-1">Get your API key from:</p>
+            <a href="${provider === 'OpenAI' ? 'https://platform.openai.com/api-keys' : 'https://aistudio.google.com/app/apikey'}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+              ${provider === 'OpenAI' ? 'OpenAI Platform' : 'Google AI Studio'}
+            </a>
+          </div>
+        </div>
+        <label class="flex items-center space-x-2 text-xs text-gray-600 bg-yellow-50 p-2 rounded">
           <input id="persist-key" type="checkbox" class="rounded border-gray-300">
-          <span>Persist to localStorage (less secure)</span>
+          <span>⚠️ Persist to localStorage (less secure, but convenient)</span>
         </label>
       </div>`,
     buttons: [
@@ -36,7 +49,8 @@ export function showApiKeyModal(provider) {
           }
         }
       }
-    ]
+    ],
+    size: 'lg'
   });
 }
 
@@ -119,8 +133,25 @@ export function showSortModal() {
   const modal = new Modal();
   modal.show({
     title: 'Sort Data',
-    content: '<p>Sort functionality is not yet implemented.</p>',
-    buttons: [{ text: 'Close', action: 'close', primary: true }]
+    content: `
+      <div class="space-y-4">
+        <div class="flex items-start space-x-3 p-3 bg-amber-50 rounded-lg">
+          <svg class="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div class="text-sm text-amber-800">
+            <p class="font-medium mb-1">Feature Coming Soon</p>
+            <p>Sort functionality is currently in development. For now, try using AI commands like:</p>
+            <ul class="mt-2 space-y-1 text-xs">
+              <li>• "Sort column A alphabetically"</li>
+              <li>• "Sort data by column B in descending order"</li>
+              <li>• "Sort the table by name column"</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    `,
+    buttons: [{ text: 'Got it', action: 'close', primary: true }]
   });
 }
 
@@ -128,8 +159,25 @@ export function showChartModal() {
   const modal = new Modal();
   modal.show({
     title: 'Create Chart',
-    content: '<p>Chart functionality is not yet implemented.</p>',
-    buttons: [{ text: 'Close', action: 'close', primary: true }]
+    content: `
+      <div class="space-y-4">
+        <div class="flex items-start space-x-3 p-3 bg-purple-50 rounded-lg">
+          <svg class="w-5 h-5 text-purple-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <div class="text-sm text-purple-800">
+            <p class="font-medium mb-1">Charts & Visualization</p>
+            <p>Chart creation is in development. Try these AI commands instead:</p>
+            <ul class="mt-2 space-y-1 text-xs">
+              <li>• "Create a bar chart from my data"</li>
+              <li>• "Generate a line graph for sales trends"</li>
+              <li>• "Make a pie chart showing percentages"</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    `,
+    buttons: [{ text: 'Try AI Commands', action: 'close', primary: true }]
   });
 }
 

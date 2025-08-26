@@ -41,33 +41,103 @@ function renderTask(task) {
 
   const canExecute = task.status === 'pending' || task.status === 'failed' || task.status === 'blocked';
   const showRetry = task.status === 'failed' || task.status === 'blocked';
+  
+  const priorityColors = {
+    1: 'bg-red-500',
+    2: 'bg-orange-500', 
+    3: 'bg-yellow-500',
+    4: 'bg-blue-500',
+    5: 'bg-gray-500'
+  };
+
+  const priorityLabels = {
+    1: 'Urgent',
+    2: 'High',
+    3: 'Medium', 
+    4: 'Low',
+    5: 'Lowest'
+  };
+  
+  const priority = task.priority || 3;
+  const dependencies = task.dependencies || [];
+  
+  function renderErrorSummary(task) {
+    if (!task.result) return '';
+    
+    let errorText = '';
+    if (typeof task.result === 'object') {
+      if (task.result.errors && Array.isArray(task.result.errors)) {
+        errorText = task.result.errors.slice(0, 2).join(', ');
+        if (task.result.errors.length > 2) errorText += '...';
+      } else if (task.result.analysis) {
+        errorText = task.result.analysis.substring(0, 100) + '...';
+      } else {
+        errorText = 'Task validation failed';
+      }
+    } else {
+      errorText = String(task.result).substring(0, 100);
+      if (String(task.result).length > 100) errorText += '...';
+    }
+    
+    return errorText;
+  }
 
   return `
-    <div class="task-item flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors ${task.status === 'in_progress' ? 'animate-pulse' : ''}" data-task-id="${task.id}">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center space-x-2 mb-1">
-          <h4 class="text-sm font-medium text-gray-900 truncate">${escapeHtml(task.title)}</h4>
-          <span class="text-xs">${statusIcons[task.status] || statusIcons.pending}</span>
+    <div class="task-item flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-sm ${task.status === 'in_progress' ? 'animate-pulse border-blue-300 bg-blue-50' : ''}" data-task-id="${task.id}">
+      <div class="flex items-start space-x-3 flex-1 min-w-0">
+        <div class="flex flex-col items-center space-y-1 flex-shrink-0">
+          <div class="w-3 h-3 rounded-full ${priorityColors[priority]} opacity-75" title="Priority: ${priorityLabels[priority]}"></div>
+          ${dependencies.length > 0 ? `<div class="text-xs text-gray-400" title="${dependencies.length} dependencies">🔗</div>` : ''}
         </div>
-        ${task.description ? `<p class="text-xs text-gray-500 mb-2 line-clamp-2">${escapeHtml(task.description)}</p>` : ''}
-        <div class="flex items-center justify-between">
-          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors.pending}">${(task.status || 'pending').replace('_', ' ')}</span>
-          ${task.context?.sheet ? `<span class="text-xs text-gray-400">📊 ${escapeHtml(task.context.sheet)}</span>` : ''}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center space-x-2 mb-1">
+            <h4 class="text-sm font-medium text-gray-900 truncate">${escapeHtml(task.title)}</h4>
+            <span class="text-xs">${statusIcons[task.status] || statusIcons.pending}</span>
+          </div>
+          ${task.description ? `<p class="text-xs text-gray-500 mb-2 line-clamp-2">${escapeHtml(task.description)}</p>` : ''}
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors.pending}">${(task.status || 'pending').replace('_', ' ')}</span>
+              ${priority <= 2 ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">${priorityLabels[priority]}</span>` : ''}
+            </div>
+            ${task.context?.sheet ? `<span class="text-xs text-gray-400">📊 ${escapeHtml(task.context.sheet)}</span>` : ''}
+          </div>
+          ${task.result && (task.status === 'blocked' || task.status === 'failed') ? `
+            <div class="mt-2 p-2 rounded-md text-xs ${
+              task.status === 'blocked' ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'
+            }">
+              <div class="flex items-start space-x-2">
+                <span class="${task.status === 'blocked' ? 'text-yellow-600' : 'text-red-600'} font-medium">
+                  ${task.status === 'blocked' ? '⚠️ Blocked:' : '❌ Error:'}
+                </span>
+                <div class="${task.status === 'blocked' ? 'text-yellow-800' : 'text-red-800'} flex-1">
+                  ${escapeHtml(renderErrorSummary(task))}
+                </div>
+              </div>
+              ${(task.result?.recommendations || task.result?.risks) ? `
+                <div class="mt-1 text-xs ${task.status === 'blocked' ? 'text-yellow-700' : 'text-red-700'}">
+                  <strong>Suggestions:</strong> ${task.result.recommendations?.[0] || task.result.risks?.[0]?.mitigation || 'Review task details'}
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+          ${task.duration ? `<div class="text-xs text-gray-400 mt-1">Completed in ${(task.duration/1000).toFixed(1)}s</div>` : ''}
+          ${task.createdAt && !task.duration ? `<div class="text-xs text-gray-400 mt-1">${new Date(task.createdAt).toLocaleString()}</div>` : ''}
         </div>
-        ${task.result && task.status === 'blocked' ? `<div class="mt-2 p-2 bg-yellow-50 rounded text-xs text-yellow-800">${escapeHtml(typeof task.result === 'object' ? task.result.errors?.join(', ') || 'Task blocked' : task.result)}</div>` : ''}
-        ${task.result && task.status === 'failed' ? `<div class="mt-2 p-2 bg-red-50 rounded text-xs text-red-800">${escapeHtml(typeof task.result === 'string' ? task.result : 'Task failed')}</div>` : ''}
-        ${task.createdAt ? `<div class="text-xs text-gray-400 mt-1">${new Date(task.createdAt).toLocaleString()}</div>` : ''}
       </div>
-      <div class="flex items-center space-x-1 ml-3 flex-shrink-0">
-        ${canExecute ? `<button onclick="executeTask('${task.id}')" class="p-1 text-blue-600 hover:text-blue-800 transition-colors" title="${showRetry ? 'Retry' : 'Execute'}">
+      <div class="flex flex-col items-center space-y-1 ml-3 flex-shrink-0">
+        ${canExecute ? `<button onclick="executeTask('${task.id}')" class="p-2 ${showRetry ? 'text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100' : 'text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100'} rounded-full transition-all duration-200 hover:scale-105" title="${showRetry ? 'Retry Task' : 'Execute Task'}">
           ${showRetry ?
       '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>' :
       '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m-6-8h8a2 2 0 012 2v8a2 2 0 01-2 2H8a2 2 0 01-2-2V6a2 2 0 012-2z"></path></svg>'
     }</button>` : ''}
-        ${task.status === 'done' ? `<button onclick="viewTaskResult('${task.id}')" class="p-1 text-green-600 hover:text-green-800 transition-colors" title="View Result">
+        ${task.status === 'done' ? `<button onclick="viewTaskResult('${task.id}')" class="p-2 text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 rounded-full transition-all duration-200 hover:scale-105" title="View Result">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
           </button>` : ''}
-        <button onclick="deleteTask('${task.id}')" class="p-1 text-red-600 hover:text-red-800 transition-colors" title="Delete">
+        ${(task.status === 'blocked' || task.status === 'failed') ? `<button onclick="viewTaskResult('${task.id}')" class="p-2 text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 rounded-full transition-all duration-200 hover:scale-105" title="View Error Details">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>` : ''}
+        <button onclick="deleteTask('${task.id}')" class="p-2 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-full transition-all duration-200 hover:scale-105" title="Delete Task">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
@@ -77,6 +147,44 @@ function renderTask(task) {
 export function drawTasks() {
   const list = document.getElementById('task-list');
   const summary = document.getElementById('task-summary');
+  
+  // Add task controls if not already present
+  const taskControls = document.getElementById('task-controls');
+  if (taskControls && !taskControls.querySelector('.auto-execute-toggle')) {
+    const controlsHtml = `
+      <div class="flex items-center justify-between mb-3 p-2 bg-gray-50 rounded-lg">
+        <div class="flex items-center space-x-4">
+          <label class="flex items-center space-x-2 text-sm">
+            <input type="checkbox" id="auto-execute-toggle" class="auto-execute-toggle rounded border-gray-300" ${AppState.autoExecute ? 'checked' : ''}>
+            <span class="font-medium text-gray-700">Auto-execute tasks</span>
+          </label>
+          <div class="text-xs text-gray-500">Automatically run tasks after planning</div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <select id="task-filter" class="text-xs border border-gray-300 rounded px-2 py-1">
+            <option value="all">All Tasks</option>
+            <option value="active">Active Only</option>
+            <option value="completed">Completed Only</option>
+            <option value="failed">Failed/Blocked</option>
+          </select>
+          <button onclick="executeTasks(AppState.tasks.filter(t => t.status === 'pending'))" class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors" title="Execute all pending tasks">
+            Execute All
+          </button>
+        </div>
+      </div>
+    `;
+    taskControls.innerHTML = controlsHtml;
+    
+    // Add event listeners
+    document.getElementById('auto-execute-toggle')?.addEventListener('change', (e) => {
+      AppState.autoExecute = e.target.checked;
+      localStorage.setItem('autoExecute', AppState.autoExecute);
+    });
+    
+    document.getElementById('task-filter')?.addEventListener('change', (e) => {
+      filterTasks(e.target.value);
+    });
+  }
 
   if (summary) {
     const pending = AppState.tasks.filter(t => t.status === 'pending').length;
@@ -94,13 +202,31 @@ export function drawTasks() {
     list.innerHTML = '<div class="text-center text-gray-500 text-sm py-4">No tasks yet. Chat with AI to create tasks!</div>';
     return;
   }
+  
+  // Get current filter
+  const currentFilter = document.getElementById('task-filter')?.value || 'all';
+  let filteredTasks = AppState.tasks;
+  
+  switch (currentFilter) {
+    case 'active':
+      filteredTasks = AppState.tasks.filter(t => ['pending', 'in_progress', 'blocked'].includes(t.status));
+      break;
+    case 'completed':
+      filteredTasks = AppState.tasks.filter(t => t.status === 'done');
+      break;
+    case 'failed':
+      filteredTasks = AppState.tasks.filter(t => ['failed', 'blocked'].includes(t.status));
+      break;
+    default:
+      filteredTasks = AppState.tasks;
+  }
 
   const tasksByStatus = {
-    in_progress: AppState.tasks.filter(t => t.status === 'in_progress'),
-    pending: AppState.tasks.filter(t => t.status === 'pending'),
-    blocked: AppState.tasks.filter(t => t.status === 'blocked'),
-    failed: AppState.tasks.filter(t => t.status === 'failed'),
-    done: AppState.tasks.filter(t => t.status === 'done')
+    in_progress: filteredTasks.filter(t => t.status === 'in_progress'),
+    pending: filteredTasks.filter(t => t.status === 'pending'),
+    blocked: filteredTasks.filter(t => t.status === 'blocked'),
+    failed: filteredTasks.filter(t => t.status === 'failed'),
+    done: filteredTasks.filter(t => t.status === 'done')
   };
 
   let html = '';
@@ -130,6 +256,10 @@ export function drawTasks() {
   list.innerHTML = html;
 }
 
+function filterTasks(filterType) {
+  drawTasks(); // Redraw with the new filter
+}
+
 window.toggleCompletedTasks = function () {
   const completedTasks = document.getElementById('completed-tasks');
   const toggleIcon = document.getElementById('completed-toggle-icon');
@@ -148,23 +278,141 @@ window.viewTaskResult = function (id) {
   if (!task || !task.result) return;
 
   const modal = new Modal();
-  const result = typeof task.result === 'object' ? JSON.stringify(task.result, null, 2) : String(task.result);
+  const result = task.result;
+  const isError = task.status === 'failed' || task.status === 'blocked';
+  
+  // Enhanced result formatting
+  let contentHtml = '';
+  
+  if (isError) {
+    const errorIcon = task.status === 'blocked' ? '🛑' : '❌';
+    const errorColor = task.status === 'blocked' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200';
+    const textColor = task.status === 'blocked' ? 'text-yellow-800' : 'text-red-800';
+    
+    contentHtml = `
+      <div class="space-y-4">
+        <div class="flex items-start space-x-3 p-3 ${errorColor} border rounded-lg">
+          <span class="text-lg">${errorIcon}</span>
+          <div>
+            <h4 class="font-medium ${textColor} mb-1">${task.status === 'blocked' ? 'Task Blocked' : 'Task Failed'}</h4>
+            <p class="text-sm ${textColor}">This task could not be completed. Review the details below for troubleshooting.</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><strong>Status:</strong> ${task.status}</div>
+          <div><strong>Sheet:</strong> ${task.context?.sheet || 'Unknown'}</div>
+          <div><strong>Priority:</strong> ${['', 'Urgent', 'High', 'Medium', 'Low', 'Lowest'][task.priority || 3]}</div>
+          <div><strong>Retry Count:</strong> ${task.retryCount || 0}/${task.maxRetries || 3}</div>
+        </div>`;
+    
+    if (typeof result === 'object') {
+      if (result.analysis) {
+        contentHtml += `
+          <div>
+            <h5 class="font-medium text-gray-900 mb-2">Analysis</h5>
+            <div class="bg-gray-50 p-3 rounded-lg text-sm">${escapeHtml(result.analysis)}</div>
+          </div>`;
+      }
+      
+      if (result.errors && result.errors.length > 0) {
+        contentHtml += `
+          <div>
+            <h5 class="font-medium text-gray-900 mb-2">Errors</h5>
+            <ul class="bg-red-50 p-3 rounded-lg text-sm space-y-1">
+              ${result.errors.map(error => `<li class="flex items-start space-x-2"><span class="text-red-500">•</span><span>${escapeHtml(error)}</span></li>`).join('')}
+            </ul>
+          </div>`;
+      }
+      
+      if (result.recommendations && result.recommendations.length > 0) {
+        contentHtml += `
+          <div>
+            <h5 class="font-medium text-gray-900 mb-2">Recommendations</h5>
+            <ul class="bg-blue-50 p-3 rounded-lg text-sm space-y-1">
+              ${result.recommendations.map(rec => `<li class="flex items-start space-x-2"><span class="text-blue-500">💡</span><span>${escapeHtml(rec)}</span></li>`).join('')}
+            </ul>
+          </div>`;
+      }
+      
+      if (result.risks && result.risks.length > 0) {
+        contentHtml += `
+          <div>
+            <h5 class="font-medium text-gray-900 mb-2">Risk Assessment</h5>
+            <div class="space-y-2">
+              ${result.risks.map(risk => `
+                <div class="flex items-start space-x-2 p-2 bg-orange-50 rounded">
+                  <span class="text-orange-500 font-bold text-xs px-1.5 py-0.5 bg-orange-200 rounded">${risk.level?.toUpperCase()}</span>
+                  <div class="text-sm">
+                    <p class="font-medium">${escapeHtml(risk.description)}</p>
+                    ${risk.mitigation ? `<p class="text-orange-700 mt-1">💡 ${escapeHtml(risk.mitigation)}</p>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+      }
+    } else {
+      contentHtml += `
+        <div>
+          <h5 class="font-medium text-gray-900 mb-2">Error Details</h5>
+          <div class="bg-gray-50 p-3 rounded-lg text-sm font-mono">${escapeHtml(String(result))}</div>
+        </div>`;
+    }
+    
+    contentHtml += '</div>';
+  } else {
+    // Success case
+    contentHtml = `
+      <div class="space-y-4">
+        <div class="flex items-start space-x-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <span class="text-lg">✅</span>
+          <div>
+            <h4 class="font-medium text-green-800 mb-1">Task Completed Successfully</h4>
+            <p class="text-sm text-green-700">This task has been executed and validated.</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><strong>Status:</strong> ${task.status}</div>
+          <div><strong>Sheet:</strong> ${task.context?.sheet || 'Unknown'}</div>
+          <div><strong>Duration:</strong> ${task.duration ? (task.duration/1000).toFixed(1) + 's' : 'Unknown'}</div>
+          <div><strong>Completed:</strong> ${task.completedAt ? new Date(task.completedAt).toLocaleString() : 'Unknown'}</div>
+        </div>`;
+    
+    if (typeof result === 'object' && result.message) {
+      contentHtml += `
+        <div>
+          <h5 class="font-medium text-gray-900 mb-2">Result Summary</h5>
+          <div class="bg-gray-50 p-3 rounded-lg text-sm">${escapeHtml(result.message)}</div>
+        </div>`;
+    }
+    
+    if (typeof result === 'object') {
+      contentHtml += `
+        <details class="bg-gray-50 rounded-lg">
+          <summary class="p-3 cursor-pointer font-medium text-gray-700 hover:bg-gray-100 rounded-lg">View Technical Details</summary>
+          <div class="p-3 pt-0">
+            <pre class="text-xs text-gray-600 whitespace-pre-wrap overflow-auto">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
+          </div>
+        </details>`;
+    }
+    
+    contentHtml += '</div>';
+  }
 
   modal.show({
-    title: `Task Result: ${task.title}`,
-    content: `
-      <div class="space-y-3">
-        <div class="text-sm text-gray-600">
-          <strong>Status:</strong> ${task.status} <br>
-          <strong>Sheet:</strong> ${task.context?.sheet || 'Unknown'} <br>
-          <strong>Completed:</strong> ${new Date(task.createdAt).toLocaleString()}
-        </div>
-        <div class="bg-gray-50 p-3 rounded-lg">
-          <pre class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(result)}</pre>
-        </div>
-      </div>`,
-    buttons: [{ text: 'Close', action: 'close', primary: true }],
-    size: 'lg'
+    title: `${isError ? (task.status === 'blocked' ? '🛑' : '❌') : '✅'} ${task.title}`,
+    content: contentHtml,
+    buttons: [
+      ...(isError && (task.status === 'failed' || task.status === 'blocked') ? [{
+        text: 'Retry Task', 
+        action: 'retry', 
+        onClick: () => executeTask(task.id)
+      }] : []),
+      { text: 'Close', action: 'close', primary: true }
+    ],
+    size: 'xl'
   });
 };
 
@@ -291,6 +539,16 @@ window.executeTask = async function (id) {
 
     saveTasks();
     drawTasks();
+    
+    // Add completion animation
+    setTimeout(() => {
+      const taskElement = document.querySelector(`[data-task-id="${task.id}"]`);
+      if (taskElement) {
+        taskElement.classList.add('task-complete-flash');
+        setTimeout(() => taskElement.classList.remove('task-complete-flash'), 600);
+      }
+    }, 100);
+    
     showToast(`Task completed: ${task.title}`, 'success');
 
     const enabledTasks = AppState.tasks.filter(t =>
