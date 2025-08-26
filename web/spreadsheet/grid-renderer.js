@@ -170,14 +170,14 @@ function renderVisibleGrid(container, ws) {
   const firstCol = Math.max(0, Math.floor(parent.scrollLeft / GRID_CONFIG.defaultColWidth) - GRID_CONFIG.minColsBuffer);
   const lastCol = Math.min(fullRange.e.c, Math.max(firstCol + visibleCols, firstCol + 20)); // At least 20 columns visible
   
+  // Calculate total dimensions for full dataset
+  const totalHeight = (fullRange.e.r + 1) * GRID_CONFIG.defaultRowHeight;
+  const totalWidth = (fullRange.e.c + 1) * GRID_CONFIG.defaultColWidth;
+  
   // Log dataset info and rendering details
   console.info(`Rendering grid: ${fullRange.e.r + 1} rows × ${fullRange.e.c + 1} columns (${totalCells.toLocaleString()} total cells)`);
   console.info(`Visible range: rows ${firstRow}-${lastRow} (${lastRow - firstRow + 1} rows), columns ${firstCol}-${lastCol} (${lastCol - firstCol + 1} cols)`);
   console.info(`Container size: ${containerWidth}×${containerHeight}px, Virtual size: ${totalWidth}×${totalHeight}px`);
-  
-  // Calculate total dimensions for full dataset
-  const totalHeight = (fullRange.e.r + 1) * GRID_CONFIG.defaultRowHeight;
-  const totalWidth = (fullRange.e.c + 1) * GRID_CONFIG.defaultColWidth;
   
   let html = `<div class="virtual-scroll-area" style="height: ${totalHeight}px; width: ${totalWidth}px; position: relative; overflow: visible;">`;
   
