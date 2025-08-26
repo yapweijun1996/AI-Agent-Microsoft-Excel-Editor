@@ -8,6 +8,17 @@ class FormulaEngine {
     this.data = data; // Spreadsheet data
     this.activeSheetName = activeSheetName;
     
+    // Formula result cache for performance
+    this.formulaCache = new Map();
+    this.cacheVersion = 0; // Increment when data changes
+    this.maxCacheSize = 1000; // Prevent memory leaks
+    this.cacheHitCount = 0;
+    this.cacheMissCount = 0;
+    
+    // Circular reference detection
+    this.evaluationStack = new Set(); // Track cells being evaluated
+    this.maxStackDepth = 100; // Prevent infinite recursion
+    
     // Check if formulaParser is available
     if (typeof formulaParser === 'undefined') {
       console.error('Formula parser library not loaded. Please ensure hot-formula-parser is included.');
@@ -32,9 +43,20 @@ class FormulaEngine {
     });
   }
 
-  execute(formula, data, activeSheetName = null) {
+  execute(formula, data, activeSheetName = null, cellAddress = null) {
     // Normalize: strip leading '=' for parser or fallback evaluation
     const expr = (typeof formula === 'string' && formula.startsWith('=')) ? formula.slice(1) : formula;
+
+    // Create cache key
+    const cacheKey = `${this.cacheVersion}:${activeSheetName || this.activeSheetName}:${expr}`;
+    
+    // Check cache first
+    if (this.formulaCache.has(cacheKey)) {
+      this.cacheHitCount++;
+      return this.formulaCache.get(cacheKey);
+    }
+    
+    this.cacheMissCount++;
 
     // Return evaluated value or plain text if parser is not available
     if (!this.parser) {
@@ -42,11 +64,15 @@ class FormulaEngine {
       if (typeof expr === 'string' && /^[0-9+\-*/().\s]+$/.test(expr)) {
         try {
           const val = Function('"use strict";return (' + expr + ')')();
-          return Number.isFinite(val) ? val : expr;
+          const result = Number.isFinite(val) ? val : expr;
+          this.setCacheValue(cacheKey, result);
+          return result;
         } catch {
+          this.setCacheValue(cacheKey, expr);
           return expr;
         }
       }
+      this.setCacheValue(cacheKey, expr);
       return expr;
     }
     
@@ -57,12 +83,20 @@ class FormulaEngine {
     
     try {
       const result = this.parser.parse(typeof expr === 'string' ? expr : String(expr));
+      let finalResult;
+      
       if (result.error) {
-        return { error: result.error, details: "Error from parser" };
+        finalResult = { error: result.error, details: "Error from parser" };
+      } else {
+        finalResult = result.result;
       }
-      return result.result;
+      
+      this.setCacheValue(cacheKey, finalResult);
+      return finalResult;
     } catch (error) {
-      return { error: "#ERROR!", details: error.message };
+      const errorResult = { error: "#ERROR!", details: error.message };
+      this.setCacheValue(cacheKey, errorResult);
+      return errorResult;
     }
   }
 
@@ -77,18 +111,79 @@ class FormulaEngine {
 
     // Handle formula cells recursively
     if (cell.f) {
+      const cellKey = `${sheetName}!${cellCoord.label}`;
+      
+      // Check for circular reference
+      if (this.evaluationStack.has(cellKey)) {
+        return { error: "#CIRCULAR!", details: `Circular reference detected in ${cellCoord.label}` };
+      }
+      
+      // Check stack depth to prevent infinite recursion
+      if (this.evaluationStack.size > this.maxStackDepth) {
+        return { error: "#DEPTH!", details: `Maximum evaluation depth exceeded at ${cellCoord.label}` };
+      }
+      
+      // Add to evaluation stack
+      this.evaluationStack.add(cellKey);
+      
       try {
-        const result = this.execute('=' + cell.f, this.data, sheetName);
+        const result = this.execute('=' + cell.f, this.data, sheetName, cellCoord.label);
         if (result && result.error) {
           return { error: result.error, details: `Error in cell ${cellCoord.label}: ${result.details}` };
         }
         return result;
       } catch (error) {
         return { error: "#ERROR!", details: `Exception in ${cellCoord.label}: ${error.message}` };
+      } finally {
+        // Always remove from evaluation stack
+        this.evaluationStack.delete(cellKey);
       }
     }
     
     return cell.v;
+  }
+
+  /**
+   * Set value in cache with size management
+   */
+  setCacheValue(key, value) {
+    // Prevent cache from growing too large
+    if (this.formulaCache.size >= this.maxCacheSize) {
+      // Remove oldest entries (simple FIFO)
+      const keysToDelete = Array.from(this.formulaCache.keys()).slice(0, Math.floor(this.maxCacheSize * 0.3));
+      keysToDelete.forEach(oldKey => this.formulaCache.delete(oldKey));
+    }
+    
+    this.formulaCache.set(key, value);
+  }
+
+  /**
+   * Invalidate cache when spreadsheet data changes
+   */
+  invalidateCache() {
+    this.cacheVersion++;
+    this.formulaCache.clear();
+    this.evaluationStack.clear(); // Clear circular reference tracking
+    
+    // Log cache performance if in debug mode
+    if (this.cacheHitCount + this.cacheMissCount > 0) {
+      const hitRate = (this.cacheHitCount / (this.cacheHitCount + this.cacheMissCount) * 100).toFixed(1);
+      console.log(`Formula cache performance - Hits: ${this.cacheHitCount}, Misses: ${this.cacheMissCount}, Hit rate: ${hitRate}%`);
+    }
+    
+    this.cacheHitCount = 0;
+    this.cacheMissCount = 0;
+  }
+
+  /**
+   * Update data and invalidate cache
+   */
+  updateData(newData, activeSheetName = null) {
+    this.data = newData;
+    if (activeSheetName) {
+      this.activeSheetName = activeSheetName;
+    }
+    this.invalidateCache();
   }
 
   getRangeValues(startCellCoord, endCellCoord) {
@@ -133,8 +228,11 @@ class FormulaEngine {
 let globalFormulaEngine = null;
 
 function getFormulaEngine(data, activeSheetName = null) {
-  if (!globalFormulaEngine || globalFormulaEngine.data !== data) {
+  if (!globalFormulaEngine) {
     globalFormulaEngine = new FormulaEngine(data, activeSheetName);
+  } else if (globalFormulaEngine.data !== data) {
+    // Data has changed, update and invalidate cache
+    globalFormulaEngine.updateData(data, activeSheetName);
   } else if (activeSheetName && globalFormulaEngine.activeSheetName !== activeSheetName) {
     globalFormulaEngine.activeSheetName = activeSheetName;
   }

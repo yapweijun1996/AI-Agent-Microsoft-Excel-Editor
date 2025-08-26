@@ -160,7 +160,28 @@ export function bindUI() {
     showApiKeyModal('Gemini');
   });
 
-  document.getElementById('help-btn')?.addEventListener('click', showHelpModal);
+  document.getElementById('clear-keys-btn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const { Modal } = await import('./modal.js');
+    const confirmed = await Modal.confirm(
+      'Clear all stored API keys? You will need to re-enter them.',
+      {
+        title: 'Clear API Keys',
+        confirmText: 'Clear Keys',
+        cancelText: 'Cancel',
+        dangerousAction: true
+      }
+    );
+    
+    if (confirmed) {
+      import('../services/api-keys.js').then(({ clearStoredKeys }) => {
+        clearStoredKeys();
+        showToast('API keys cleared successfully', 'success');
+      });
+    }
+  });
+
+  document.getElementById('help-btn')?.addEventListener('click', showHelpModal;
 
   document.getElementById('dry-run-toggle')?.addEventListener('change', (e) => { AppState.dryRun = e.target.checked; });
   document.getElementById('auto-execute-toggle')?.addEventListener('change', (e) => { AppState.autoExecute = e.target.checked; });

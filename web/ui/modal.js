@@ -43,4 +43,57 @@ export class Modal {
     return this.currentModal;
   }
   close() { if (this.currentModal) { this.currentModal.remove(); this.currentModal = null; } }
+  
+  /**
+   * Show a non-blocking confirmation dialog
+   * @param {string} message - The confirmation message
+   * @param {Object} options - Options for the confirmation
+   * @returns {Promise<boolean>} - Resolves to true if confirmed, false if cancelled
+   */
+  static async confirm(message, { 
+    title = 'Confirm', 
+    confirmText = 'Confirm', 
+    cancelText = 'Cancel',
+    dangerousAction = false 
+  } = {}) {
+    return new Promise((resolve) => {
+      const modal = new Modal();
+      
+      const confirmClass = dangerousAction 
+        ? 'bg-red-500 hover:bg-red-600 text-white focus:ring-red-500'
+        : 'bg-blue-500 hover:bg-blue-600 text-white focus:ring-blue-500';
+        
+      modal.show({
+        title,
+        content: `<p class="text-gray-700">${message}</p>`,
+        size: 'sm',
+        closable: true,
+        buttons: [
+          {
+            text: cancelText,
+            action: 'cancel',
+            onClick: () => resolve(false)
+          },
+          {
+            text: confirmText,
+            action: 'confirm',
+            primary: true,
+            onClick: () => resolve(true)
+          }
+        ]
+      });
+      
+      // Handle backdrop/close button clicks as cancel
+      const backdrop = document.getElementById('modal-backdrop');
+      const closeBtn = document.getElementById('modal-close');
+      
+      if (backdrop) {
+        backdrop.addEventListener('click', () => resolve(false));
+      }
+      
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => resolve(false));
+      }
+    });
+  }
 }

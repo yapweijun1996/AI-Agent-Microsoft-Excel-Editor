@@ -1,7 +1,7 @@
 'use strict';
 
 import { AppState } from '../core/state.js';
-import { log } from '../utils/index.js';
+import { log, deepCopy } from '../utils/index.js';
 import { showToast } from '../ui/toast.js';
 import { renderSheetTabs } from './sheet-manager.js';
 import { renderSpreadsheetTable } from './grid-renderer.js';
@@ -20,7 +20,7 @@ export function saveToHistory(action, data) {
   const historyEntry = {
     action,
     data,
-    workbook: JSON.parse(JSON.stringify(AppState.wb)), // Deep copy
+    workbook: deepCopy(AppState.wb), // Efficient deep copy
     activeSheet: AppState.activeSheet,
     timestamp: Date.now()
   };
@@ -55,7 +55,7 @@ export function undo() {
   AppState.historyIndex--;
 
   const historyEntry = AppState.history[AppState.historyIndex];
-  AppState.wb = JSON.parse(JSON.stringify(historyEntry.workbook));
+  AppState.wb = deepCopy(historyEntry.workbook);
   AppState.activeSheet = historyEntry.activeSheet;
 
   renderSheetTabs();
@@ -78,7 +78,7 @@ export function redo() {
   AppState.historyIndex++;
 
   const historyEntry = AppState.history[AppState.historyIndex];
-  AppState.wb = JSON.parse(JSON.stringify(historyEntry.workbook));
+  AppState.wb = deepCopy(historyEntry.workbook);
   AppState.activeSheet = historyEntry.activeSheet;
 
   renderSheetTabs();

@@ -6,6 +6,11 @@ import { renderSpreadsheetTable } from './grid-renderer.js';
 import { showToast } from '../ui/toast.js';
 import { Modal } from '../ui/modal.js';
 import { saveToHistory } from './history-manager.js';
+import { columnToNumber, numberToColumn, AppError, ERROR_CODES, handleError } from '../utils/index.js';
+import { registerGlobal } from '../core/global-bindings.js';
+
+// XLSX is loaded globally via CDN
+const XLSX = window.XLSX;
 
 /**
  * Apply spreadsheet edits or show dry run preview
@@ -42,8 +47,10 @@ export async function applyEditsOrDryRun(result) {
     
     showToast(`Applied ${changeCount} changes successfully`, 'success');
   } catch (error) {
-    showToast(`Failed to apply edit ${changeCount + 1}: ${error.message}`, 'error');
-    throw error;
+    const wrappedError = error instanceof AppError ? error : 
+      new AppError(`Failed to apply edit ${changeCount + 1}: ${error.message}`, ERROR_CODES.OPERATION_FAILED);
+    handleError(wrappedError, { operation: 'applyEditsOrDryRun', editCount: changeCount + 1 });
+    throw wrappedError;
   }
 }
 
@@ -82,15 +89,27 @@ async function applyEdit(edit, ws) {
       break;
 
     case 'insertRow':
+      await insertRow(edit.rowIndex || edit.row || 1, ws);
+      break;
+      
     case 'deleteRow':
+      await deleteRow(edit.rowIndex || edit.row || 1, ws);
+      break;
+      
     case 'insertColumn':
+      await insertColumn(edit.columnIndex || edit.column || 1, ws);
+      break;
+      
     case 'deleteColumn':
-      showToast(`Operation "${op}" not yet implemented`, 'warning');
+      await deleteColumn(edit.columnIndex || edit.column || 1, ws);
       break;
 
     case 'formatCell':
+      await formatCell(cell, format, ws);
+      break;
+      
     case 'formatRange':
-      showToast(`Formatting operation "${op}" not yet implemented`, 'warning');
+      await formatRange(range, format, ws);
       break;
 
     default:
@@ -200,29 +219,257 @@ function showDryRunPreview(result) {
   });
 }
 
+
 /**
- * Convert column letter to number (A=1, B=2, etc.)
+ * Insert a new row at the specified index
  */
-function columnToNumber(column) {
-  let result = 0;
-  for (let i = 0; i < column.length; i++) {
-    result = result * 26 + (column.charCodeAt(i) - 64);
+async function insertRow(rowIndex, ws) {
+  if (!ws || typeof rowIndex !== 'number' || rowIndex < 1) {
+    throw new Error('Invalid row index for insertion');
   }
-  return result;
+
+  // Shift all rows down from the insertion point
+  const range = ws['!ref'];
+  if (range) {
+    const { s: start, e: end } = ws['!ref'] ? XLSX.utils.decode_range(range) : { s: { c: 0, r: 0 }, e: { c: 25, r: 1000 } };
+    
+    // Process from bottom to top to avoid overwriting
+    for (let r = end.r; r >= rowIndex - 1; r--) {
+      for (let c = start.c; c <= end.c; c++) {
+        const currentAddr = XLSX.utils.encode_cell({ c, r });
+        const newAddr = XLSX.utils.encode_cell({ c, r: r + 1 });
+        
+        if (ws[currentAddr]) {
+          ws[newAddr] = { ...ws[currentAddr] };
+          delete ws[currentAddr];
+        }
+      }
+    }
+    
+    // Update the range
+    ws['!ref'] = XLSX.utils.encode_range({
+      s: start,
+      e: { ...end, r: end.r + 1 }
+    });
+  }
+  
+  showToast(`Row ${rowIndex} inserted successfully`, 'success');
 }
 
 /**
- * Convert column number to letter (1=A, 2=B, etc.)
+ * Delete the row at the specified index
  */
-function numberToColumn(number) {
-  let result = '';
-  while (number > 0) {
-    number--;
-    result = String.fromCharCode(65 + (number % 26)) + result;
-    number = Math.floor(number / 26);
+async function deleteRow(rowIndex, ws) {
+  if (!ws || typeof rowIndex !== 'number' || rowIndex < 1) {
+    throw new Error('Invalid row index for deletion');
   }
-  return result;
+
+  const range = ws['!ref'];
+  if (range) {
+    const { s: start, e: end } = XLSX.utils.decode_range(range);
+    
+    if (rowIndex - 1 > end.r) {
+      throw new Error('Row index beyond worksheet range');
+    }
+    
+    // Delete the target row
+    for (let c = start.c; c <= end.c; c++) {
+      const addr = XLSX.utils.encode_cell({ c, r: rowIndex - 1 });
+      delete ws[addr];
+    }
+    
+    // Shift all rows up from deletion point
+    for (let r = rowIndex; r <= end.r; r++) {
+      for (let c = start.c; c <= end.c; c++) {
+        const currentAddr = XLSX.utils.encode_cell({ c, r });
+        const newAddr = XLSX.utils.encode_cell({ c, r: r - 1 });
+        
+        if (ws[currentAddr]) {
+          ws[newAddr] = { ...ws[currentAddr] };
+          delete ws[currentAddr];
+        }
+      }
+    }
+    
+    // Update the range
+    if (end.r > 0) {
+      ws['!ref'] = XLSX.utils.encode_range({
+        s: start,
+        e: { ...end, r: end.r - 1 }
+      });
+    }
+  }
+  
+  showToast(`Row ${rowIndex} deleted successfully`, 'success');
 }
 
-// Make function available globally for task-manager.js
-window.applyEditsOrDryRun = applyEditsOrDryRun;
+/**
+ * Insert a new column at the specified index
+ */
+async function insertColumn(columnIndex, ws) {
+  if (!ws || typeof columnIndex !== 'number' || columnIndex < 1) {
+    throw new Error('Invalid column index for insertion');
+  }
+
+  const range = ws['!ref'];
+  if (range) {
+    const { s: start, e: end } = XLSX.utils.decode_range(range);
+    
+    // Process from right to left to avoid overwriting
+    for (let c = end.c; c >= columnIndex - 1; c--) {
+      for (let r = start.r; r <= end.r; r++) {
+        const currentAddr = XLSX.utils.encode_cell({ c, r });
+        const newAddr = XLSX.utils.encode_cell({ c: c + 1, r });
+        
+        if (ws[currentAddr]) {
+          ws[newAddr] = { ...ws[currentAddr] };
+          delete ws[currentAddr];
+        }
+      }
+    }
+    
+    // Update the range
+    ws['!ref'] = XLSX.utils.encode_range({
+      s: start,
+      e: { ...end, c: end.c + 1 }
+    });
+  }
+  
+  const columnLetter = numberToColumn(columnIndex);
+  showToast(`Column ${columnLetter} inserted successfully`, 'success');
+}
+
+/**
+ * Delete the column at the specified index
+ */
+async function deleteColumn(columnIndex, ws) {
+  if (!ws || typeof columnIndex !== 'number' || columnIndex < 1) {
+    throw new Error('Invalid column index for deletion');
+  }
+
+  const range = ws['!ref'];
+  if (range) {
+    const { s: start, e: end } = XLSX.utils.decode_range(range);
+    
+    if (columnIndex - 1 > end.c) {
+      throw new Error('Column index beyond worksheet range');
+    }
+    
+    // Delete the target column
+    for (let r = start.r; r <= end.r; r++) {
+      const addr = XLSX.utils.encode_cell({ c: columnIndex - 1, r });
+      delete ws[addr];
+    }
+    
+    // Shift all columns left from deletion point
+    for (let c = columnIndex; c <= end.c; c++) {
+      for (let r = start.r; r <= end.r; r++) {
+        const currentAddr = XLSX.utils.encode_cell({ c, r });
+        const newAddr = XLSX.utils.encode_cell({ c: c - 1, r });
+        
+        if (ws[currentAddr]) {
+          ws[newAddr] = { ...ws[currentAddr] };
+          delete ws[currentAddr];
+        }
+      }
+    }
+    
+    // Update the range
+    if (end.c > 0) {
+      ws['!ref'] = XLSX.utils.encode_range({
+        s: start,
+        e: { ...end, c: end.c - 1 }
+      });
+    }
+  }
+  
+  const columnLetter = numberToColumn(columnIndex);
+  showToast(`Column ${columnLetter} deleted successfully`, 'success');
+}
+
+/**
+ * Apply formatting to a single cell
+ */
+async function formatCell(cellAddr, format, ws) {
+  if (!cellAddr || !format || !ws) {
+    throw new Error('Invalid parameters for cell formatting');
+  }
+
+  // Ensure the cell exists
+  if (!ws[cellAddr]) {
+    ws[cellAddr] = { t: 's', v: '' };
+  }
+
+  // Apply formatting
+  if (!ws[cellAddr].s) {
+    ws[cellAddr].s = {};
+  }
+
+  // Apply specific formatting properties
+  if (format.bold !== undefined) {
+    ws[cellAddr].s.font = ws[cellAddr].s.font || {};
+    ws[cellAddr].s.font.bold = format.bold;
+  }
+  
+  if (format.italic !== undefined) {
+    ws[cellAddr].s.font = ws[cellAddr].s.font || {};
+    ws[cellAddr].s.font.italic = format.italic;
+  }
+  
+  if (format.color) {
+    ws[cellAddr].s.font = ws[cellAddr].s.font || {};
+    ws[cellAddr].s.font.color = { rgb: format.color.replace('#', '') };
+  }
+  
+  if (format.backgroundColor) {
+    ws[cellAddr].s.fill = {
+      fgColor: { rgb: format.backgroundColor.replace('#', '') },
+      patternType: 'solid'
+    };
+  }
+  
+  if (format.numberFormat) {
+    ws[cellAddr].s.numFmt = format.numberFormat;
+  }
+  
+  showToast(`Cell ${cellAddr} formatted successfully`, 'success');
+}
+
+/**
+ * Apply formatting to a range of cells
+ */
+async function formatRange(range, format, ws) {
+  if (!range || !format || !ws) {
+    throw new Error('Invalid parameters for range formatting');
+  }
+
+  // Parse range (e.g., "A1:C3")
+  const [start, end] = range.split(':');
+  if (!start || !end) {
+    throw new Error(`Invalid range format: ${range}`);
+  }
+
+  const startCol = start.match(/[A-Z]+/)[0];
+  const startRow = parseInt(start.match(/\d+/)[0]);
+  const endCol = end.match(/[A-Z]+/)[0];
+  const endRow = parseInt(end.match(/\d+/)[0]);
+
+  const startColIndex = columnToNumber(startCol);
+  const endColIndex = columnToNumber(endCol);
+
+  // Apply formatting to each cell in the range
+  for (let row = startRow; row <= endRow; row++) {
+    for (let colIndex = startColIndex; colIndex <= endColIndex; colIndex++) {
+      const cellAddr = numberToColumn(colIndex) + row;
+      await formatCell(cellAddr, format, ws);
+    }
+  }
+  
+  showToast(`Range ${range} formatted successfully`, 'success');
+}
+
+// Register for global access with proper deprecation notice
+registerGlobal('applyEditsOrDryRun', applyEditsOrDryRun, {
+  deprecated: true,
+  description: 'Consider using the Operations namespace in future versions'
+});

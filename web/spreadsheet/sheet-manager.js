@@ -6,6 +6,7 @@ import { showToast } from '../ui/toast.js';
 import { saveToHistory } from './history-manager.js';
 import { renderSpreadsheetTable } from './grid-renderer.js';
 import { persistSnapshot } from './workbook-manager.js';
+import { Modal } from '../ui/modal.js';
 
 export function renderSheetTabs() {
   if (!AppState.wb) return;
@@ -70,13 +71,23 @@ export function addNewSheet() {
   showToast(`Added sheet "${newName}"`, 'success');
 }
 
-export function deleteSheet(sheetName) {
+export async function deleteSheet(sheetName) {
   if (!AppState.wb || AppState.wb.SheetNames.length <= 1) {
     showToast('Cannot delete the last sheet', 'warning');
     return;
   }
 
-  if (!confirm(`Delete sheet "${sheetName}"?`)) return;
+  const confirmed = await Modal.confirm(
+    `Delete sheet "${sheetName}"? This action cannot be undone.`, 
+    { 
+      title: 'Delete Sheet',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      dangerousAction: true 
+    }
+  );
+  
+  if (!confirmed) return;
 
   const sheetIndex = AppState.wb.SheetNames.indexOf(sheetName);
   if (sheetIndex === -1) return;

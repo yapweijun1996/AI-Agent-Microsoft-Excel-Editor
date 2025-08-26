@@ -1,9 +1,10 @@
 import { AppState } from '../core/state.js';
 import { getWorksheet, persistSnapshot } from './workbook-manager.js';
 import { saveToHistory } from './history-manager.js';
-import { renderSpreadsheetTable, applySelectionHighlight } from './grid-renderer.js';
+import { renderSpreadsheetTable, applySelectionHighlight, updateSingleCell } from './grid-renderer.js';
 import { showToast } from '../ui/toast.js';
 import { parseCellValue, expandRefForCell } from '../utils/index.js';
+import { registerGlobal, createNamespace } from '../core/global-bindings.js';
 /* global XLSX */
 
 // Selection state for range selection
@@ -36,12 +37,18 @@ export function updateCell(addr, value) {
   }
   expandRefForCell(ws, addr);
   persistSnapshot();
-  renderSpreadsheetTable();
+  
+  // Use efficient single-cell update instead of full re-render when possible
+  try {
+    updateSingleCell(addr, value.startsWith('=') ? value : value);
+  } catch (e) {
+    // Fall back to full render if single-cell update fails
+    renderSpreadsheetTable();
+  }
 }
-window.updateCell = updateCell;
 
 // Enhanced keyboard navigation
-window.handleCellKeydown = function (event, addr) {
+function handleCellKeydown(event, addr) {
   const cell = XLSX.utils.decode_cell(addr);
   const ws = getWorksheet();
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
@@ -161,14 +168,14 @@ function handleKeyboardShortcut(event, addr) {
 }
 
 // Legacy support
-window.handleCellKeypress = function (event) {
+function handleCellKeypress(event) {
   if (event.key === 'Enter') {
     event.preventDefault();
     event.target.blur();
   }
 };
 
-window.onCellFocus = function (addr, input) {
+function onCellFocus(addr, input) {
   try {
     const cell = XLSX.utils.decode_cell(addr);
     AppState.activeCell = cell;
@@ -198,7 +205,7 @@ window.onCellFocus = function (addr, input) {
   } catch (e) { /* no-op */ }
 };
 
-window.onCellBlur = function (addr, input) {
+function onCellBlur(addr, input) {
   updateCell(addr, input.value);
 };
 
@@ -772,3 +779,126 @@ function applyFormatToCell(ws, cellRef, formatType, value) {
   ws[cellRef] = cell;
   return true;
 }
+
+// Initialize global bindings for HTML event handlers
+function initializeGridGlobals() {
+  // Create a clean namespace for grid interactions
+  createNamespace('GridInteractions', {
+    updateCell,
+    handleCellKeydown: function (event, addr) {
+      const cell = XLSX.utils.decode_cell(addr);
+      const ws = getWorksheet();
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      
+      switch (event.key) {
+        case 'ArrowUp':
+          event.preventDefault();
+          moveToCell(Math.max(0, cell.r - 1), cell.c);
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          moveToCell(cell.r, Math.max(0, cell.c - 1));
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          moveToCell(cell.r, Math.min(range.e.c, cell.c + 1));
+          break;
+        case 'Enter':
+          event.preventDefault();
+          moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
+          break;
+        case 'Tab':
+          event.preventDefault();
+          if (event.shiftKey) {
+            moveToCell(cell.r, Math.max(0, cell.c - 1));
+          } else {
+            moveToCell(cell.r, Math.min(range.e.c, cell.c + 1));
+          }
+          break;
+        case 'Delete':
+          event.preventDefault();
+          updateCell(addr, '');
+          break;
+        case 'F2':
+          event.preventDefault();
+          event.target.readOnly = false;
+          event.target.focus();
+          break;
+        case 'Escape':
+          event.preventDefault();
+          event.target.blur();
+          break;
+      }
+    },
+    handleCellKeypress: function (event) {
+      // Allow typing to immediately start editing
+      if (event.target && event.target.readOnly) {
+        event.target.readOnly = false;
+      }
+    },
+    onCellFocus: function (addr, input) {
+      AppState.selectedCell = addr;
+      if (input) {
+        input.readOnly = false;
+        // Show raw value for formulas
+        const ws = getWorksheet();
+        const cell = ws[addr];
+        if (cell && cell.f) {
+          input.value = '=' + cell.f;
+        }
+        
+        // Auto-select content for easy editing
+        setTimeout(() => {
+          if (input && input.select) {
+            input.select();
+          }
+        }, 10);
+      }
+      updateAddressBar(addr);
+    },
+    onCellBlur: function (addr, input) {
+      if (input && input.value !== undefined) {
+        // Get the worksheet to check current value
+        const ws = getWorksheet();
+        const currentCell = ws[addr];
+        const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
+        
+        // Only update if value changed
+        if (String(input.value) !== String(currentValue)) {
+          updateCell(addr, input.value);
+        }
+        input.readOnly = true;
+      }
+    }
+  });
+  
+  // For backward compatibility, also register individual functions
+  // Mark these as deprecated to encourage using the namespace
+  registerGlobal('updateCell', updateCell, { 
+    deprecated: true, 
+    description: 'Use GridInteractions.updateCell instead' 
+  });
+  registerGlobal('handleCellKeydown', window.GridInteractions.handleCellKeydown, { 
+    deprecated: true, 
+    description: 'Use GridInteractions.handleCellKeydown instead' 
+  });
+  registerGlobal('handleCellKeypress', window.GridInteractions.handleCellKeypress, { 
+    deprecated: true, 
+    description: 'Use GridInteractions.handleCellKeypress instead' 
+  });
+  registerGlobal('onCellFocus', window.GridInteractions.onCellFocus, { 
+    deprecated: true, 
+    description: 'Use GridInteractions.onCellFocus instead' 
+  });
+  registerGlobal('onCellBlur', window.GridInteractions.onCellBlur, { 
+    deprecated: true, 
+    description: 'Use GridInteractions.onCellBlur instead' 
+  });
+}
+
+// Initialize when module loads
+initializeGridGlobals();
