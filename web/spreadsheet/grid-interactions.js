@@ -787,6 +787,7 @@ function initializeGridGlobals() {
   // Create a clean namespace for grid interactions
   createNamespace('GridInteractions', {
     updateCell,
+    updateAddressBar,
     handleCellKeydown: function (event, addr) {
       const cell = XLSX.utils.decode_cell(addr);
       const ws = getWorksheet();
