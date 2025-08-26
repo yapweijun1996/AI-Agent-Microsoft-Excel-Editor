@@ -3,6 +3,7 @@ import { getWorksheet, persistSnapshot } from './workbook-manager.js';
 import { saveToHistory } from './history-manager.js';
 import { renderSpreadsheetTable, applySelectionHighlight } from './grid-renderer.js';
 import { showToast } from '../ui/toast.js';
+import { parseCellValue } from '../utils/index.js';
 /* global XLSX */
 
 // Cell & Grid Logic

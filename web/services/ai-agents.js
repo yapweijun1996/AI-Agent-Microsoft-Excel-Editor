@@ -31,13 +31,6 @@ export async function runIntentAgent(userText) {
   const provider = pickProvider();
   
   try {
-    if (provider === 'mock') {
-      const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
-      if (greetings.some(g => userText.toLowerCase().includes(g))) {
-        return { needsTasks: false, intent: 'greeting', response: 'Hello! How can I help you with your spreadsheet today?' };
-      }
-      return { needsTasks: true, intent: 'spreadsheet_operation' };
-    }
 
     const system = `You are the Intent Agent - an expert at analyzing user input to determine whether it requires spreadsheet task planning or is a conversational message.
 
@@ -117,24 +110,14 @@ EXAMPLES:
     if (result && typeof result.needsTasks === 'boolean') {
       return result;
     } else {
-      // Fallback classification based on keywords
-      const taskKeywords = ['add', 'create', 'insert', 'delete', 'calculate', 'sum', 'format', 'sort', 'filter', 'chart', 'formula', 'cell', 'row', 'column'];
-      const greetingKeywords = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
-      
-      const lowerText = userText.toLowerCase();
-      const hasTaskKeywords = taskKeywords.some(k => lowerText.includes(k));
-      const hasGreetingKeywords = greetingKeywords.some(k => lowerText.includes(k));
-      
-      if (hasGreetingKeywords && !hasTaskKeywords) {
-        return { 
-          needsTasks: false, 
-          intent: 'greeting', 
-          confidence: 0.8,
-          response: 'Hello! How can I help you with your spreadsheet today?'
-        };
-      }
-      
-      return { needsTasks: true, intent: 'spreadsheet_operation', confidence: 0.7 };
+      // If LLM response is not parseable, default to needing tasks with low confidence
+      console.warn('Intent Agent: LLM response not parseable, defaulting to spreadsheet_operation');
+      return { 
+        needsTasks: true, 
+        intent: 'spreadsheet_operation', 
+        confidence: 0.3,
+        reasoning: 'LLM response parsing failed - defaulting to task-based processing'
+      };
     }
   } catch (error) {
     console.error('Intent Agent failed:', error);
@@ -148,10 +131,6 @@ export async function runPlanner(userText) {
   const tasks = [];
 
   try {
-    if (provider === 'mock') {
-      tasks.push({ id: uuid(), title: 'Insert header row', description: 'Add Name, Age, Email', status: 'pending', context: { range: 'A1:C1', sheet: AppState.activeSheet }, createdAt: new Date().toISOString() });
-      return tasks;
-    }
 
     // Get current sheet context for better planning
     const ws = getWorksheet();
@@ -283,16 +262,6 @@ IMPORTANT:
 
 export async function runExecutor(task) {
   const provider = pickProvider();
-  if (provider === 'mock') {
-    return {
-      edits: [
-        { op: 'setCell', sheet: AppState.activeSheet, cell: 'A1', value: 'Total' },
-        { op: 'setRange', sheet: AppState.activeSheet, range: 'A2:C3', values: [['a', 1, 2], ['b', 3, 4]] }
-      ],
-      export: null,
-      message: `Mock applied 2 edits for ${task.title}`
-    };
-  }
 
   // Get current sheet context
   const ws = getWorksheet();
@@ -382,39 +351,14 @@ IMPORTANT:
 export async function runValidator(executorObj, task) {
   const provider = pickProvider();
 
-  // Basic schema validation first
-  const basicResult = { valid: true, errors: [], warnings: [] };
-  if (!executorObj || !Array.isArray(executorObj.edits)) {
-    basicResult.valid = false;
-    basicResult.errors.push('Missing edits array');
-    return basicResult;
-  }
-
-  const supportedOps = ['setCell', 'setRange', 'setFormula', 'insertRow', 'deleteRow', 'insertColumn', 'deleteColumn', 'formatCell', 'formatRange'];
-  for (const e of executorObj.edits) {
-    if (!e.op) {
-      basicResult.valid = false;
-      basicResult.errors.push('Edit missing operation type');
-      break;
-    }
-    if (supportedOps.indexOf(e.op) === -1) {
-      basicResult.valid = false;
-      basicResult.errors.push(`Unsupported operation: ${e.op}`);
-      break;
-    }
-  }
-
-  if (!basicResult.valid) return basicResult;
-
-  // Advanced AI-powered validation
-  if (provider === 'mock') {
+  // Quick null check before LLM validation
+  if (!executorObj) {
     return {
-      valid: true,
-      confidence: 0.8,
-      analysis: 'Mock validation - basic schema checks passed',
-      risks: [],
-      recommendations: [],
-      dataIntegrityScore: 0.9
+      valid: false,
+      confidence: 1.0,
+      analysis: 'Executor result is null or undefined',
+      errors: ['Missing executor result'],
+      warnings: []
     };
   }
 
@@ -425,9 +369,10 @@ export async function runValidator(executorObj, task) {
 
     const system = `You are the Validator Agent - an expert in data integrity, conflict detection, and intelligent validation of spreadsheet operations.
 
-ROLE: Analyze planned operations for potential conflicts, data integrity issues, and optimization opportunities while ensuring user intent is preserved.
+ROLE: Analyze planned operations for potential conflicts, data integrity issues, and optimization opportunities while ensuring user intent is preserved. You must perform ALL validation including schema validation, operation type validation, and advanced integrity checks.
 
 CAPABILITIES:
+- Complete schema and structure validation of executor results
 - Deep data integrity analysis and conflict detection
 - Formula dependency and reference validation  
 - Performance impact assessment for large operations
@@ -442,19 +387,29 @@ CURRENT CONTEXT:
 - Available sheets: [${AppState.wb.SheetNames.join(', ')}]
 
 VALIDATION STRATEGY:
-1. Analyze data integrity and potential conflicts
-2. Validate formula references and dependencies
-3. Assess performance impact and optimization opportunities
-4. Check data type consistency and formatting
-5. Verify alignment with user intent and task goals
-6. Identify potential risks and provide recommendations
+1. FIRST: Validate the executor result structure and schema
+   - Check that 'edits' array exists and is valid
+   - Verify operation types are supported: ['setCell', 'setRange', 'setFormula', 'insertRow', 'deleteRow', 'insertColumn', 'deleteColumn', 'formatCell', 'formatRange']
+   - Ensure required fields are present for each operation
+2. THEN: Analyze data integrity and potential conflicts
+3. Validate formula references and dependencies
+4. Assess performance impact and optimization opportunities
+5. Check data type consistency and formatting
+6. Verify alignment with user intent and task goals
+7. Identify potential risks and provide recommendations
 
 REQUIRED OUTPUT FORMAT:
 {
   "valid": true,
   "confidence": 0.95,
-  "analysis": "Detailed analysis of the planned operations and their impact",
+  "analysis": "Detailed analysis including schema validation and operation impact",
   "dataIntegrityScore": 0.9,
+  "schemaValidation": {
+    "editsArrayValid": true,
+    "operationTypesValid": true,
+    "requiredFieldsPresent": true,
+    "errors": []
+  },
   "risks": [
     {"level": "medium", "description": "Potential data overwrite", "mitigation": "Create backup"},
     {"level": "low", "description": "Performance impact on large dataset", "mitigation": "Use batch operations"}
@@ -473,10 +428,13 @@ REQUIRED OUTPUT FORMAT:
   "userIntentAlignment": 0.95,
   "expectedOutcome": "Operations will successfully add totals row with proper formulas",
   "rollbackComplexity": "low",
-  "warnings": ["Large dataset may impact browser performance"]
+  "warnings": ["Large dataset may impact browser performance"],
+  "errors": []
 }
 
 VALIDATION CRITERIA:
+- CRITICAL: Schema validation of executor result structure
+- CRITICAL: Operation type validation against supported operations  
 - Data integrity and consistency preservation
 - Formula reference validity and dependency management
 - Performance impact on current dataset size
@@ -485,11 +443,14 @@ VALIDATION CRITERIA:
 - Reversibility and rollback complexity
 
 INTELLIGENCE FEATURES:
+- Complete schema and structure validation
 - Context-aware conflict detection
 - Performance impact prediction
 - User intent analysis and preservation
 - Advanced risk assessment with mitigation strategies
-- Optimization recommendations for efficiency`;
+- Optimization recommendations for efficiency
+
+IMPORTANT: If the executor result fails schema validation (missing edits array, unsupported operations, missing required fields), set valid: false and include detailed error information.`;
 
     const operations = {
       task: {
@@ -530,21 +491,27 @@ INTELLIGENCE FEATURES:
       return result;
     }
 
-    // Fallback to basic validation
+    // Fallback when LLM response is not parseable - default to valid with warnings
+    console.warn('Validator Agent: LLM response not parseable, defaulting to valid with low confidence');
     return {
       valid: true,
-      confidence: 0.7,
-      analysis: 'AI validation failed, using basic schema validation',
-      warnings: ['Advanced validation unavailable']
+      confidence: 0.3,
+      analysis: 'LLM validation failed - response not parseable. Proceeding with caution.',
+      warnings: ['LLM validation unavailable - proceeding without advanced validation'],
+      errors: [],
+      dataIntegrityScore: 0.5
     };
 
   } catch (error) {
-    console.error('Validator failed:', error);
+    console.error('Validator Agent failed:', error);
     return {
-      valid: true, // Don't block on validator failure
-      confidence: 0.5,
-      analysis: `Validation error: ${error.message}`,
-      warnings: ['Validator agent unavailable - proceeding with basic validation only']
+      valid: true, // Don't block on validator failure - allow operation to proceed with warnings
+      confidence: 0.2,
+      analysis: `LLM validation failed due to error: ${error.message}. Proceeding without validation.`,
+      warnings: ['LLM Validator Agent unavailable - operations proceeding without advanced validation'],
+      errors: [],
+      dataIntegrityScore: 0.3,
+      risks: [{ level: 'high', description: 'Operating without validation due to LLM failure', mitigation: 'Manual review recommended' }]
     };
   }
 }

@@ -4,7 +4,7 @@ import { escapeHtml, extractFirstJson } from '../utils/index.js';
 import { Modal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
 import { getWorksheet } from '../spreadsheet/workbook-manager.js';
-import { runExecutor, runValidator, fetchOpenAI, fetchGemini } from '../services/ai-agents.js';
+import { runExecutor, runValidator, fetchOpenAI, fetchGemini, pickProvider } from '../services/ai-agents.js';
 /* global getSampleDataFromSheet, applyEditsOrDryRun, log, pickProvider, getSelectedModel */
 
 export async function loadTasks() {
