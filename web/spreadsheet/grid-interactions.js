@@ -233,7 +233,9 @@ function onCellFocus(addr, input) {
     
     // Update format button states when cell is focused
     updateFormatButtonStates();
-  } catch (e) { /* no-op */ }
+  } catch (e) { 
+    console.warn('Error in onCellFocus:', e.message);
+  }
 };
 
 function onCellBlur(addr, input) {
