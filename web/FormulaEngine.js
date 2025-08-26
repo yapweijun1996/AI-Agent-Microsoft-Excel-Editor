@@ -259,10 +259,14 @@ function getFormulaEngine(data, activeSheetName = null) {
 // Export to global scope for use in other scripts
 window.getFormulaEngine = getFormulaEngine;
 
+// Immediate test when script loads
+console.log('FormulaEngine.js loaded');
+console.log('formulaParser available at load time:', typeof formulaParser !== 'undefined');
+
 // Test the formula engine on load
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Testing FormulaEngine on DOM load...');
-  console.log('formulaParser available:', typeof formulaParser !== 'undefined');
+  console.log('formulaParser available after DOM load:', typeof formulaParser !== 'undefined');
   
   if (typeof formulaParser !== 'undefined') {
     try {
@@ -273,6 +277,18 @@ document.addEventListener('DOMContentLoaded', function() {
       console.error('FormulaEngine test failed:', error);
     }
   } else {
-    console.error('formulaParser is not available');
+    console.error('formulaParser is not available - trying fallback arithmetic');
+    try {
+      // Test direct arithmetic evaluation
+      const result = Function('"use strict";return (1+1)')();
+      console.log('Direct arithmetic evaluation result:', result);
+    } catch (error) {
+      console.error('Direct arithmetic evaluation failed:', error);
+    }
   }
+});
+
+// Also add a window load event in case DOM load is too early
+window.addEventListener('load', function() {
+  console.log('Window loaded, formulaParser available:', typeof formulaParser !== 'undefined');
 });
