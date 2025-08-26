@@ -56,7 +56,7 @@ function initKeyboardShortcuts() {
           break;
         case 'enter':
           e.preventDefault();
-          document.getElementById('message-input').focus();
+          document.getElementById('message-input')?.focus();
           break;
         case 'z':
           e.preventDefault();
@@ -87,7 +87,7 @@ function initKeyboardShortcuts() {
 
     if (e.key === 'F2') {
       e.preventDefault();
-      document.getElementById('message-input').focus();
+      document.getElementById('message-input')?.focus();
     }
 
     if (e.key === 'Escape') {
