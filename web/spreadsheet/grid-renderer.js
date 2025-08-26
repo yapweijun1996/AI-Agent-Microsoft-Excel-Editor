@@ -519,19 +519,31 @@ export function applySelectionHighlight() {
 function addResponsiveHandler() {
   let resizeTimeout;
   
-  window.addEventListener('resize', () => {
-    // Debounce resize events
+  const handleResize = () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      // Force re-render on resize to apply new responsive sizes
+      console.log('🔥 RESIZE: Window resized to', window.innerWidth + 'x' + window.innerHeight);
+      // Apply mobile class first
+      applyInitialMobileClass();
+      // Then force re-render
       renderSpreadsheetTable(true);
     }, 250);
-  });
+  };
+  
+  window.addEventListener('resize', handleResize);
   
   // Also handle orientation change on mobile
   window.addEventListener('orientationchange', () => {
+    console.log('🔥 ORIENTATION: Changed');
     setTimeout(() => {
+      applyInitialMobileClass();
       renderSpreadsheetTable(true);
     }, 300);
   });
+  
+  // Initial check in case the handler is added after load
+  setTimeout(() => {
+    console.log('🔥 HANDLER: Initial mobile check');
+    applyInitialMobileClass();
+  }, 100);
 }
