@@ -27,7 +27,7 @@ function initKeyboardShortcuts() {
           break;
         case 'o':
           e.preventDefault();
-          document.getElementById('import-xlsx-input').click();
+          document.getElementById('import-xlsx-input')?.click();
           break;
         case 't':
           e.preventDefault();
