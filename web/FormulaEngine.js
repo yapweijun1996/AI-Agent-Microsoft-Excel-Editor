@@ -78,7 +78,7 @@ class FormulaEngine {
       if (typeof expr === 'string' && /^[0-9+\-*/().\s]+$/.test(expr)) {
         try {
           const val = Function('"use strict";return (' + expr + ')')();
-          const result = Number.isFinite(val) ? val : expr;
+          const result = Number.isFinite(val) ? val : val;
           console.log('Fallback evaluation result:', result);
           this.setCacheValue(cacheKey, result);
           return result;
