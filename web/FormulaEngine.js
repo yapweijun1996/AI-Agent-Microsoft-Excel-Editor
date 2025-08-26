@@ -258,3 +258,21 @@ function getFormulaEngine(data, activeSheetName = null) {
 
 // Export to global scope for use in other scripts
 window.getFormulaEngine = getFormulaEngine;
+
+// Test the formula engine on load
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Testing FormulaEngine on DOM load...');
+  console.log('formulaParser available:', typeof formulaParser !== 'undefined');
+  
+  if (typeof formulaParser !== 'undefined') {
+    try {
+      const testEngine = new FormulaEngine({Sheets: {Sheet1: {}}, SheetNames: ['Sheet1']}, 'Sheet1');
+      const testResult = testEngine.execute('=1+1');
+      console.log('FormulaEngine test result for 1+1:', testResult);
+    } catch (error) {
+      console.error('FormulaEngine test failed:', error);
+    }
+  } else {
+    console.error('formulaParser is not available');
+  }
+});
