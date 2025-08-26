@@ -315,14 +315,19 @@ export function bindGridHeaderEvents() {
     });
   });
 
-  // Enhanced cell interactions with drag selection (modern grid)
+  // Enhanced cell interactions with touch and mouse support (modern grid)
   container.querySelectorAll('.modern-cell[data-cell]').forEach(cellEl => {
     const cellRef = cellEl.dataset.cell;
     const cellCoords = XLSX.utils.decode_cell(cellRef);
 
-    // Mouse down for selection start
-    cellEl.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return; // Only left click
+    // Touch and mouse start for selection
+    const handleSelectionStart = (e) => {
+      // Prevent default to avoid scrolling on touch
+      if (e.type === 'touchstart') {
+        e.preventDefault();
+      }
+      
+      if (e.type === 'mousedown' && e.button !== 0) return; // Only left click for mouse
 
       if (e.ctrlKey || e.metaKey) {
         // Multi-select mode
@@ -334,21 +339,40 @@ export function bindGridHeaderEvents() {
         // Start new selection
         startSelection(cellCoords);
       }
-    });
+    };
 
-    // Mouse enter for drag selection
-    cellEl.addEventListener('mouseenter', (e) => {
-      if (selectionState.isSelecting && e.buttons === 1) {
+    // Touch and mouse move for drag selection
+    const handleSelectionMove = (e) => {
+      if (!selectionState.isSelecting) return;
+      
+      let isPressed = false;
+      if (e.type === 'touchmove') {
+        isPressed = true;
+        e.preventDefault(); // Prevent scrolling
+      } else if (e.type === 'mouseenter') {
+        isPressed = e.buttons === 1;
+      }
+      
+      if (isPressed) {
         extendSelectionTo(cellCoords);
       }
-    });
+    };
 
-    // Mouse up to end selection
-    cellEl.addEventListener('mouseup', (e) => {
-      if (e.button === 0) {
-        endSelection();
-      }
-    });
+    // Touch and mouse end
+    const handleSelectionEnd = (e) => {
+      if (e.type === 'mouseup' && e.button !== 0) return;
+      endSelection();
+    };
+
+    // Add both touch and mouse events
+    cellEl.addEventListener('mousedown', handleSelectionStart);
+    cellEl.addEventListener('touchstart', handleSelectionStart, { passive: false });
+    
+    cellEl.addEventListener('mouseenter', handleSelectionMove);
+    cellEl.addEventListener('touchmove', handleSelectionMove, { passive: false });
+    
+    cellEl.addEventListener('mouseup', handleSelectionEnd);
+    cellEl.addEventListener('touchend', handleSelectionEnd);
 
     // Context menu
     cellEl.addEventListener('contextmenu', (e) => {
@@ -363,12 +387,16 @@ export function bindGridHeaderEvents() {
     });
   });
   
-  // Global mouse up to handle selection end
-  document.addEventListener('mouseup', () => {
+  // Global touch/mouse end to handle selection end
+  const globalSelectionEnd = () => {
     if (selectionState.isSelecting) {
       endSelection();
     }
-  });
+  };
+  
+  document.addEventListener('mouseup', globalSelectionEnd);
+  document.addEventListener('touchend', globalSelectionEnd);
+  document.addEventListener('touchcancel', globalSelectionEnd);
 }
 
 function showContextMenu(x, y, items) {

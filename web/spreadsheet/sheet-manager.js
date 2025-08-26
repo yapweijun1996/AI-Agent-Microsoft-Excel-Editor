@@ -7,7 +7,7 @@ import { saveToHistory } from './history-manager.js';
 import { renderSpreadsheetTable } from './grid-renderer.js';
 import { persistSnapshot } from './workbook-manager.js';
 import { Modal } from '../ui/modal.js';
-import { getFormulaEngine } from '../FormulaEngine.js';
+/* global getFormulaEngine */
 
 export function renderSheetTabs() {
   if (!AppState.wb) return;

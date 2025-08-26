@@ -184,8 +184,7 @@ td[data-cell]:hover {
   flex-direction: column;
   background: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  overflow: auto;
-  min-width: max-content; /* Allow horizontal scroll */
+  overflow: hidden; /* Let parent handle scrolling */
 }
 
 /* Grid Header */
@@ -197,7 +196,8 @@ td[data-cell]:hover {
   background: #f8fafc;
   border-bottom: 2px solid #e2e8f0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  min-width: max-content; /* Prevent shrinking on mobile */
+  overflow-x: auto;
+  flex-shrink: 0;
 }
 
 .corner-cell {
@@ -241,7 +241,8 @@ td[data-cell]:hover {
 .grid-row {
   display: flex;
   border-bottom: 1px solid #f1f5f9;
-  min-width: max-content; /* Prevent row shrinking */
+  overflow-x: auto;
+  flex-shrink: 0;
 }
 
 .grid-row:hover {
@@ -395,15 +396,24 @@ td[data-cell]:hover {
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .modern-spreadsheet {
-    overflow-x: auto;
-    overflow-y: auto;
+    overflow: hidden; /* Let parent handle scrolling */
+  }
+  
+  #spreadsheet {
+    overflow: auto !important;
     -webkit-overflow-scrolling: touch;
+  }
+  
+  .grid-header,
+  .grid-row {
+    min-width: fit-content;
   }
 
   .modern-cell,
   .col-header {
-    width: 60px; /* Smaller but still usable */
-    min-width: 60px;
+    width: 60px !important; /* Smaller but still usable */
+    min-width: 60px !important;
+    max-width: 60px !important;
     flex-shrink: 0; /* Prevent flexbox shrinking */
   }
   
@@ -1196,38 +1206,63 @@ button:active {
 #spreadsheet {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  width: 100%;
+  height: 100%;
 }
 
-/* Improve touch behavior for grid surfaces */
+/* Improve touch behavior for grid surfaces - disable zoom on grid */
 .modern-spreadsheet,
 .grid-body {
-  touch-action: pan-x pan-y pinch-zoom;
+  touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Better touch targets on mobile */
+/* Allow pinch zoom only on the spreadsheet container itself */
+#spreadsheet {
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Better touch targets on mobile - consistent sizing */
 @media (max-width: 768px) {
   .modern-cell,
   .col-header,
   .row-header {
-    min-height: 44px; /* iOS recommended touch target size */
-    min-width: 44px;
+    min-height: 44px !important; /* iOS recommended touch target size */
+    min-width: 60px !important; /* Consistent with earlier mobile rules */
+    width: 60px !important;
+    height: 44px !important;
   }
   
-  .modern-cell {
-    height: 44px;
-  }
-  
-  .col-header,
-  .row-header {
-    height: 44px;
+  .corner-cell {
+    min-width: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
   }
   
   /* Larger touch areas for better usability */
   .cell-input {
-    min-height: 40px;
+    min-height: 40px !important;
+    height: 40px !important;
     line-height: 1.4;
-    padding: 8px;
+    padding: 8px !important;
+    font-size: 12px !important;
+  }
+  
+  /* Ensure touch-action is properly set */
+  .modern-cell,
+  .col-header,
+  .row-header {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  .cell-input {
+    touch-action: manipulation;
+    user-select: text;
+    -webkit-user-select: text;
   }
 }
 
@@ -1239,19 +1274,27 @@ button:active {
   }
 }
 
-/* Compact grid measurements on very small screens */
+/* Compact grid measurements on very small screens - maintain touch targets */
 @media (max-width: 480px) {
   .modern-cell,
   .col-header {
-    width: 80px;
+    width: 70px !important;
+    min-width: 70px !important;
+    height: 44px !important; /* Keep minimum touch target */
   }
+  
   .row-header,
   .corner-cell {
-    width: 44px;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 44px !important;
   }
+  
   .cell-input {
-    font-size: 11px;
-    padding: 1px 4px;
+    font-size: 11px !important;
+    padding: 4px !important;
+    min-height: 40px !important;
+    height: 40px !important;
   }
 }
 

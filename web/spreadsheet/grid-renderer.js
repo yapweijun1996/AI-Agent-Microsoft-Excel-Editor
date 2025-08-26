@@ -418,20 +418,31 @@ function addModernInteractions() {
     }
   });
 
-  // Use pointerenter/pointerleave for more reliable hover
-  container.addEventListener('pointerenter', (e) => {
-    const cell = e.target.closest('.modern-cell');
-    if (cell) {
-      cell.classList.add('hovered');
-    }
-  }, true);
+  // Use both pointer and touch events for reliable interaction
+  // Pointer events for hover on devices that support it
+  if ('PointerEvent' in window) {
+    container.addEventListener('pointerenter', (e) => {
+      const cell = e.target.closest('.modern-cell');
+      if (cell && e.pointerType !== 'touch') {
+        cell.classList.add('hovered');
+      }
+    }, true);
+    
+    container.addEventListener('pointerleave', (e) => {
+      const cell = e.target.closest('.modern-cell');
+      if (cell) {
+        cell.classList.remove('hovered');
+      }
+    }, true);
+  }
   
-  container.addEventListener('pointerleave', (e) => {
-    const cell = e.target.closest('.modern-cell');
-    if (cell) {
-      cell.classList.remove('hovered');
-    }
-  }, true);
+  // Touch-specific handling for mobile
+  container.addEventListener('touchstart', (e) => {
+    // Remove any existing hover states when touch starts
+    container.querySelectorAll('.hovered').forEach(el => {
+      el.classList.remove('hovered');
+    });
+  }, { passive: true });
 }
 
 // Selection highlighting
