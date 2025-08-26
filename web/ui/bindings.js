@@ -95,6 +95,15 @@ function initKeyboardShortcuts() {
       if (document.activeElement === chatInput) {
         chatInput.blur();
       }
+      // Close AI panel bottom sheet on mobile if open
+      const aiPanel = document.getElementById('ai-panel');
+      if (aiPanel && aiPanel.classList.contains('open')) {
+        aiPanel.classList.remove('open');
+        document.body.classList.remove('modal-open');
+        const fab = document.getElementById('mobile-chat-toggle');
+        if (fab) fab.classList.remove('hidden');
+        aiPanel.setAttribute('aria-hidden', 'true');
+      }
     }
   });
 }
@@ -121,6 +130,12 @@ function initRibbonTabs() {
       if (contentToShow) {
         contentToShow.classList.remove('hidden');
         contentToShow.classList.add('flex');
+      }
+      // Ensure active tab stays visible within horizontal scroll overflow (mobile)
+      try {
+        tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      } catch (_) {
+        // ignore if not supported
       }
     });
   });
@@ -188,7 +203,49 @@ export function bindUI() {
 
   document.getElementById('toggle-ai-panel')?.addEventListener('click', () => {
     const aiPanel = document.getElementById('ai-panel');
-    aiPanel.style.display = aiPanel.style.display === 'none' ? 'flex' : 'none';
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (!aiPanel) return;
+    if (isMobile) {
+      const opened = aiPanel.classList.toggle('open');
+      document.body.classList.toggle('modal-open', opened);
+      const fab = document.getElementById('mobile-chat-toggle');
+      if (fab) fab.classList.toggle('hidden', opened);
+      aiPanel.setAttribute('aria-hidden', opened ? 'false' : 'true');
+    } else {
+      const nextDisplay = aiPanel.style.display === 'none' ? 'flex' : 'none';
+      aiPanel.style.display = nextDisplay;
+      aiPanel.setAttribute('aria-hidden', nextDisplay === 'none' ? 'true' : 'false');
+    }
+  });
+
+  // Mobile floating chat button
+  document.getElementById('mobile-chat-toggle')?.addEventListener('click', () => {
+    const aiPanel = document.getElementById('ai-panel');
+    if (!aiPanel) return;
+    const opened = aiPanel.classList.toggle('open');
+    document.body.classList.toggle('modal-open', opened);
+    const fab = document.getElementById('mobile-chat-toggle');
+    if (fab) fab.classList.toggle('hidden', opened);
+    aiPanel.setAttribute('aria-hidden', opened ? 'false' : 'true');
+    if (opened) document.getElementById('message-input')?.focus();
+  });
+
+  // Ribbon "Open Chat" button
+  document.getElementById('open-chat-btn')?.addEventListener('click', () => {
+    const aiPanel = document.getElementById('ai-panel');
+    if (!aiPanel) return;
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) {
+      aiPanel.classList.add('open');
+      document.body.classList.add('modal-open');
+      const fab = document.getElementById('mobile-chat-toggle');
+      if (fab) fab.classList.add('hidden');
+      aiPanel.setAttribute('aria-hidden', 'false');
+    } else {
+      aiPanel.style.display = 'flex';
+      aiPanel.setAttribute('aria-hidden', 'false');
+    }
+    document.getElementById('message-input')?.focus();
   });
 
   document.getElementById('view-tasks')?.addEventListener('click', () => {

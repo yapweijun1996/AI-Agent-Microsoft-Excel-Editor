@@ -1102,3 +1102,98 @@ button:active {
   outline: 1px dashed #f59e0b !important; /* amber-500 */
   outline-offset: 1px;
 }
+/* === Mobile responsiveness enhancements (2025-08-26) === */
+
+/* Ribbon tabs horizontal scroll support */
+#ribbon-tabs {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  #ribbon-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  #ribbon-tabs .ribbon-tab {
+    display: inline-block;
+  }
+}
+
+/* Mobile AI panel as bottom sheet */
+@media (max-width: 768px) {
+  body.modal-open { overflow: hidden; }
+
+  #ai-panel {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    width: 100% !important;
+    height: min(45vh, 520px);
+    max-height: 90vh;
+    border-left: none !important;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -6px 16px rgba(0,0,0,0.15);
+    transform: translateY(100%);
+    transition: transform 200ms ease-out;
+    display: none !important;
+    z-index: 40;
+    background: #f9fafb;
+  }
+  #ai-panel.open {
+    display: flex !important;
+    transform: translateY(0);
+  }
+
+  #divider { display: none !important; }
+
+  /* Keep messages visible within bottom sheet */
+  #chat-messages {
+    max-height: calc(100% - 160px);
+  }
+}
+
+/* Desktop safety: ensure normal document flow */
+@media (min-width: 769px) {
+  #ai-panel { position: relative; transform: none; }
+}
+/* === Mobile grid + tabs + container overflow tweaks (2025-08-26, pass 2) === */
+
+/* Ensure spreadsheet container scrolls horizontally when needed */
+#spreadsheet {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Improve touch behavior for grid surfaces */
+.modern-spreadsheet,
+.grid-body {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* Make sheet tabs horizontally scrollable on mobile */
+@media (max-width: 768px) {
+  #sheet-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Compact grid measurements on very small screens */
+@media (max-width: 480px) {
+  .modern-cell,
+  .col-header {
+    width: 80px;
+  }
+  .row-header,
+  .corner-cell {
+    width: 44px;
+  }
+}
+
+/* Account for notches/home indicators on iOS when AI panel is open */
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 768px) {
+    #ai-panel.open {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+}

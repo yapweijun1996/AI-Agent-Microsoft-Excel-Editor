@@ -38,7 +38,7 @@
   <!-- Excel-style Ribbon -->
   <div class="bg-gray-50 border-b border-gray-300">
     <!-- Ribbon Tabs -->
-    <div class="h-6 bg-white border-b border-gray-200 px-2 flex items-center space-x-4 text-xs">
+    <div id="ribbon-tabs" class="h-6 bg-white border-b border-gray-200 px-2 flex items-center space-x-4 text-xs">
         <button class="ribbon-tab active" data-tab="home">Home</button>
         <button class="ribbon-tab" data-tab="insert">Insert</button>
         <button class="ribbon-tab" data-tab="page-layout">Page Layout</button>
@@ -172,6 +172,14 @@
         </div>
         
         <div class="h-10 w-px bg-gray-300"></div>
+
+        <!-- Chat Open (desktop + mobile) -->
+        <div class="flex flex-col items-center space-y-1">
+          <button id="open-chat-btn" aria-controls="ai-panel" class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Open Chat</button>
+          <span class="text-xs text-gray-500">Chat</span>
+        </div>
+
+        <div class="h-10 w-px bg-gray-300"></div>
         
         <!-- Help -->
         <div class="flex flex-col items-center space-y-1">
@@ -230,7 +238,7 @@
           </svg>
           <span>AI Assistant</span>
         </div>
-        <button id="toggle-ai-panel" class="text-white hover:bg-blue-700 rounded px-2 py-1">×</button>
+        <button id="toggle-ai-panel" class="text-white hover:bg-blue-700 rounded px-2 py-1" aria-label="Close AI panel">×</button>
       </div>
       
       <!-- Chat Messages -->
@@ -279,6 +287,12 @@
   <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
   
   <!-- Debug Toast Button -->
+  <!-- Mobile Chat Toggle (visible on small screens) -->
+  <button id="mobile-chat-toggle" aria-label="Open AI chat" class="fixed bottom-4 right-4 z-50 md:hidden rounded-full bg-blue-600 text-white w-14 h-14 shadow-lg flex items-center justify-center">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3C7.03 3 3 6.58 3 11c0 2.02.86 3.87 2.3 5.29L4 21l4.91-1.64C10.2 19.78 11.08 20 12 20c4.97 0 9-3.58 9-8s-4.03-9-9-9z"></path>
+    </svg>
+  </button>
   
   <!-- Loading Overlay -->
   <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center hidden">
