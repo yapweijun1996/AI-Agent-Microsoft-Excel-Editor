@@ -831,10 +831,26 @@ function initializeGridGlobals() {
           break;
         case 'Enter':
           event.preventDefault();
+          // Save current cell value before moving
+          if (event.target && event.target.value !== undefined) {
+            const currentCell = ws[addr];
+            const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
+            if (String(event.target.value) !== String(currentValue)) {
+              updateCell(addr, event.target.value);
+            }
+          }
           moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
           break;
         case 'Tab':
           event.preventDefault();
+          // Save current cell value before moving
+          if (event.target && event.target.value !== undefined) {
+            const currentCell = ws[addr];
+            const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
+            if (String(event.target.value) !== String(currentValue)) {
+              updateCell(addr, event.target.value);
+            }
+          }
           if (event.shiftKey) {
             moveToCell(cell.r, Math.max(0, cell.c - 1));
           } else {
