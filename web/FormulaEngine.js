@@ -240,3 +240,6 @@ function getFormulaEngine(data, activeSheetName = null) {
   }
   return globalFormulaEngine;
 }
+
+// Export to global scope for use in other scripts
+window.getFormulaEngine = getFormulaEngine;
