@@ -1,8 +1,8 @@
 import { AppState } from '../core/state.js';
 import { getWorksheet } from './workbook-manager.js';
 import { escapeHtml } from '../utils/index.js';
-import { bindGridHeaderEvents } from './grid-interactions.js';
-/* global XLSX, getFormulaEngine, onCellFocus, updateCell, handleCellKeydown, onCellBlur */
+import { bindGridHeaderEvents, onCellBlur, onCellFocus, handleCellKeydown } from './grid-interactions.js';
+/* global XLSX, getFormulaEngine */
 
 // Modern Excel-like Grid Renderer with Clean UI
 
