@@ -59,6 +59,43 @@ function moveToCell(row, col) {
 
 // Cell & Grid Logic
 
+export function onCellFocus(addr, input) {
+  const cellRef = XLSX.utils.decode_cell(addr);
+  AppState.activeCell = cellRef;
+  if (input) {
+    input.readOnly = false;
+    // Show raw value for formulas
+    const ws = getWorksheet();
+    const cell = ws[addr];
+    if (cell && cell.f) {
+      input.value = '=' + cell.f;
+    }
+    
+    // Auto-select content for easy editing
+    setTimeout(() => {
+      if (input && input.select) {
+        input.select();
+      }
+    }, 10);
+  }
+  updateAddressBar(addr);
+}
+
+export function onCellBlur(addr, input) {
+  if (input && input.value !== undefined) {
+    // Get the worksheet to check current value
+    const ws = getWorksheet();
+    const currentCell = ws[addr];
+    const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
+    
+    // Only update if value changed
+    if (String(input.value) !== String(currentValue)) {
+      updateCell(addr, input.value);
+    }
+    input.readOnly = true;
+  }
+}
+
 export function handleCellKeydown(event, addr) {
   const cell = XLSX.utils.decode_cell(addr);
   const ws = getWorksheet();
