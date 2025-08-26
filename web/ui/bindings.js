@@ -4,7 +4,7 @@ import { onSend } from '../chat/chat-ui.js';
 import { exportXLSX, exportCSV, importFromFile } from '../file/import-export.js';
 import { addNewSheet, deleteSheet, switchToSheet } from '../spreadsheet/sheet-manager.js';
 import { undo, redo } from '../spreadsheet/history-manager.js';
-import { insertRowAtSelection, insertColumnAtSelectionLeft, deleteSelectedRow, deleteSelectedColumn, insertFormula, applyFormat, updateFormatButtonStates } from '../spreadsheet/grid-interactions.js';
+import { insertRowAtSelection, insertColumnAtSelectionLeft, deleteSelectedRow, deleteSelectedColumn, insertFormula, applyFormat } from '../spreadsheet/grid-interactions.js';
 import { log } from '../utils/index.js';
 import { showToast } from './toast.js';
 import { debounce } from '../utils/index.js';
