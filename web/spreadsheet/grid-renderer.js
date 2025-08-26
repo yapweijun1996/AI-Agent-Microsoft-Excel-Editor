@@ -280,7 +280,7 @@ function renderVisibleGrid(container, ws) {
                  style="${cellStyle}" 
                  class="cell-input w-full h-full px-2 py-1 bg-transparent border-none outline-none focus:bg-white focus:shadow-sm focus:ring-1 focus:ring-blue-400 rounded text-sm" 
                  onfocus="onCellFocus('${addr}', this)" 
-                 onblur="updateCell('${addr}', this.value)" 
+                 onblur="onCellBlur('${addr}', this)"
                  onkeydown="handleCellKeydown(event, '${addr}')" />
         </td>`;
     }

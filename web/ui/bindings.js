@@ -199,13 +199,27 @@ export function bindUI() {
     document.getElementById('task-modal').classList.add('hidden');
   });
 
-  document.getElementById('formula-bar')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
+  const formulaBar = document.getElementById('formula-bar');
+  if (formulaBar) {
+    const updateFromFormulaBar = () => {
       const cellRef = document.getElementById('cell-reference').textContent;
-      updateCell(cellRef, e.target.value);
-      e.preventDefault();
-    }
-  });
+      if (cellRef) {
+        updateCell(cellRef, formulaBar.value);
+      }
+    };
+
+    formulaBar.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        updateFromFormulaBar();
+        e.preventDefault();
+        // Optionally, move focus back to the grid or a specific cell
+      }
+    });
+
+    formulaBar.addEventListener('blur', () => {
+      updateFromFormulaBar();
+    });
+  }
 
   document.getElementById('format-bold')?.addEventListener('click', () => applyFormat('bold'));
   document.getElementById('format-italic')?.addEventListener('click', () => applyFormat('italic'));

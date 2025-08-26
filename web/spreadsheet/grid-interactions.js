@@ -207,6 +207,10 @@ window.onCellFocus = function (addr, input) {
   } catch (e) { /* no-op */ }
 };
 
+window.onCellBlur = function (addr, input) {
+  updateCell(addr, input.value);
+};
+
 // Header and context menu interactions
 export function bindGridHeaderEvents() {
   const container = document.getElementById('spreadsheet');
