@@ -80,7 +80,7 @@ export function updateCell(addr, value) {
 }
 
 // Enhanced keyboard navigation
-function handleCellKeydown(event, addr) {
+export function handleCellKeydown(event, addr) {
   const cell = XLSX.utils.decode_cell(addr);
   const ws = getWorksheet();
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');

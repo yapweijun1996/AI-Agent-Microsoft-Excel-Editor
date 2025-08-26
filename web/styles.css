@@ -192,7 +192,7 @@ td[data-cell]:hover {
   display: flex;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 10;
   background: #f8fafc;
   border-bottom: 2px solid #e2e8f0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
