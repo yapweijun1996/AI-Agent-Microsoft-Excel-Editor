@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof formulaParser !== 'undefined') {
     try {
       const testEngine = new FormulaEngine({Sheets: {Sheet1: {}}, SheetNames: ['Sheet1']}, 'Sheet1');
-      const testResult = testEngine.execute('=1+1');
+      const testResult = testEngine.execute('=1+1', {Sheets: {Sheet1: {}}, SheetNames: ['Sheet1']}, 'Sheet1');
       console.log('FormulaEngine test result for 1+1:', testResult);
     } catch (error) {
       console.error('FormulaEngine test failed:', error);
