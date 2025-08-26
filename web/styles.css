@@ -391,6 +391,11 @@ td[data-cell]:hover {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .modern-spreadsheet {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .modern-cell,
   .col-header {
     width: 100px;
@@ -1186,6 +1191,10 @@ button:active {
   .row-header,
   .corner-cell {
     width: 44px;
+  }
+  .cell-input {
+    font-size: 11px;
+    padding: 1px 4px;
   }
 }
 

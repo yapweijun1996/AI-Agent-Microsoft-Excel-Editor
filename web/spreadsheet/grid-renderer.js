@@ -12,8 +12,8 @@ const GRID_CONFIG = {
   colWidth: 120,
   headerHeight: 32,
   rowHeaderWidth: 60,
-  visibleRows: 30,
-  visibleCols: 15
+  visibleRows: 20,
+  visibleCols: 10
 };
 
 // Enhanced render state for incremental updates
