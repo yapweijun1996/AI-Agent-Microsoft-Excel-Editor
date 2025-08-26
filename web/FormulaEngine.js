@@ -49,9 +49,12 @@ class FormulaEngine {
     
     try {
       const result = this.parser.parse(formula);
-      return result.error ? { error: result.error } : result.result;
+      if (result.error) {
+        return { error: result.error, details: "Error from parser" };
+      }
+      return result.result;
     } catch (error) {
-      return { error: error.message };
+      return { error: "#ERROR!", details: error.message };
     }
   }
 
@@ -59,18 +62,21 @@ class FormulaEngine {
     // Use active sheet if specified, otherwise default to first sheet
     const sheetName = this.activeSheetName || this.data.SheetNames[0];
     const sheet = this.data.Sheets[sheetName];
-    if (!sheet) return undefined;
+    if (!sheet) return { error: "#REF!", details: `Sheet "${sheetName}" not found.` };
 
     const cell = sheet[cellCoord.label];
-    if (!cell) return undefined;
+    if (!cell) return null;
 
     // Handle formula cells recursively
     if (cell.f) {
       try {
         const result = this.execute('=' + cell.f, this.data, sheetName);
-        return result.error ? 0 : result;
+        if (result && result.error) {
+          return { error: result.error, details: `Error in cell ${cellCoord.label}: ${result.details}` };
+        }
+        return result;
       } catch (error) {
-        return 0;
+        return { error: "#ERROR!", details: `Exception in ${cellCoord.label}: ${error.message}` };
       }
     }
     

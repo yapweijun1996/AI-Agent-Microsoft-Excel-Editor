@@ -60,8 +60,8 @@ const GRID_CONFIG = {
   minColsBuffer: 6,    // Increased buffer for smoother scrolling
   maxRows: 1048576,    // Excel limit
   maxCols: 16384,      // Excel limit
-  renderBatchSize: 50, // Maximum cells to render per batch
-  scrollThreshold: 2   // Scroll threshold multiplier
+  renderBatchSize: 100, // Maximum cells to render per batch
+  scrollThreshold: 1    // Scroll threshold multiplier (more sensitive)
 };
 
 // Virtual scrolling state management
@@ -145,41 +145,41 @@ function renderVisibleGrid(container, ws) {
   const ref = ws['!ref'] || 'A1:Z50';
   const range = XLSX.utils.decode_range(ref);
   
-  // Full range support with unlimited cells - use complete dataset
+  // Full range support with unlimited cells - expand for scrolling
   const fullRange = {
     s: { r: 0, c: 0 },
     e: { 
-      r: Math.max(range.e.r, 0),  // Use actual data range
-      c: Math.max(range.e.c, 0)   // Use actual data range
+      r: Math.max(range.e.r, 200),  // Ensure at least 200 rows for scrolling
+      c: Math.max(range.e.c, 50)    // Ensure at least 50 columns for scrolling
     }
   };
   
   const totalCells = (fullRange.e.r + 1) * (fullRange.e.c + 1);
   
-  // Log dataset info without restrictions
-  if (totalCells > 10000) {
-    console.info(`Large dataset: ${totalCells.toLocaleString()} total cells (${fullRange.e.r + 1} rows × ${fullRange.e.c + 1} columns). Using virtual scrolling for optimal performance.`);
-  }
-  
   const scrollTop = parent.scrollTop;
   const containerHeight = parent.clientHeight;
   const containerWidth = parent.clientWidth;
   
-  // Calculate visible range efficiently for unlimited scrolling
-  const visibleRows = Math.ceil(containerHeight / GRID_CONFIG.defaultRowHeight);
-  const visibleCols = Math.ceil(containerWidth / GRID_CONFIG.defaultColWidth);
+  // Calculate visible range to fill the entire viewport
+  const visibleRows = Math.ceil(containerHeight / GRID_CONFIG.defaultRowHeight) + 10; // Extra rows for full coverage
+  const visibleCols = Math.ceil(containerWidth / GRID_CONFIG.defaultColWidth) + 5;   // Extra cols for full coverage
   
   const firstRow = Math.max(0, Math.floor(scrollTop / GRID_CONFIG.defaultRowHeight) - GRID_CONFIG.minRowsBuffer);
-  const lastRow = Math.min(fullRange.e.r, firstRow + visibleRows + (GRID_CONFIG.minRowsBuffer * 2));
+  const lastRow = Math.min(fullRange.e.r, Math.max(firstRow + visibleRows, firstRow + 50)); // At least 50 rows visible
   
   const firstCol = Math.max(0, Math.floor(parent.scrollLeft / GRID_CONFIG.defaultColWidth) - GRID_CONFIG.minColsBuffer);
-  const lastCol = Math.min(fullRange.e.c, firstCol + visibleCols + (GRID_CONFIG.minColsBuffer * 2));
+  const lastCol = Math.min(fullRange.e.c, Math.max(firstCol + visibleCols, firstCol + 20)); // At least 20 columns visible
+  
+  // Log dataset info and rendering details
+  console.info(`Rendering grid: ${fullRange.e.r + 1} rows × ${fullRange.e.c + 1} columns (${totalCells.toLocaleString()} total cells)`);
+  console.info(`Visible range: rows ${firstRow}-${lastRow} (${lastRow - firstRow + 1} rows), columns ${firstCol}-${lastCol} (${lastCol - firstCol + 1} cols)`);
+  console.info(`Container size: ${containerWidth}×${containerHeight}px, Virtual size: ${totalWidth}×${totalHeight}px`);
   
   // Calculate total dimensions for full dataset
   const totalHeight = (fullRange.e.r + 1) * GRID_CONFIG.defaultRowHeight;
   const totalWidth = (fullRange.e.c + 1) * GRID_CONFIG.defaultColWidth;
   
-  let html = `<div class="virtual-scroll-area" style="height: ${totalHeight}px; width: ${totalWidth}px; position: relative;">`;
+  let html = `<div class="virtual-scroll-area" style="height: ${totalHeight}px; width: ${totalWidth}px; position: relative; overflow: visible;">`;
   
   // Calculate table position
   const tableTop = firstRow * GRID_CONFIG.defaultRowHeight;
