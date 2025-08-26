@@ -15,6 +15,14 @@ let selectionState = {
   selectedRange: null
 };
 
+// Update the address bar (cell reference display)
+function updateAddressBar(addr) {
+  const cellRefElement = document.getElementById('cell-reference');
+  if (cellRefElement) {
+    cellRefElement.textContent = addr;
+  }
+}
+
 // Cell & Grid Logic
 
 export function updateCell(addr, value) {
