@@ -216,25 +216,39 @@ export function bindGridHeaderEvents() {
   const container = document.getElementById('spreadsheet');
   if (!container) return;
 
-  // Row header click / context menu
-  container.querySelectorAll('td.row-index').forEach(td => {
-    td.addEventListener('click', () => {
-      const row = parseInt(td.dataset.row, 10);
+  // Row header click / context menu (modern grid)
+  container.querySelectorAll('.row-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const row = parseInt(header.dataset.row, 10);
       if (!isFinite(row)) return;
       AppState.selectedRows = [row];
       AppState.selectedCols = [];
       AppState.activeCell = { r: row - 1, c: 0 };
       const refEl = document.getElementById('cell-reference');
       if (refEl) refEl.textContent = `A${row}`;
-      applySelectionHighlight();
+      // Highlight full row via selection range
+      const ws = getWorksheet();
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      selectionState.selectedRange = {
+        s: { r: row - 1, c: 0 },
+        e: { r: row - 1, c: Math.max(range.e.c, 0) }
+      };
+      applyRangeSelection();
     });
 
-    td.addEventListener('contextmenu', (e) => {
+    header.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const row = parseInt(td.dataset.row, 10);
+      const row = parseInt(header.dataset.row, 10);
       AppState.selectedRows = [row];
       AppState.selectedCols = [];
-      applySelectionHighlight();
+      // Also set range for visual consistency
+      const ws = getWorksheet();
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      selectionState.selectedRange = {
+        s: { r: row - 1, c: 0 },
+        e: { r: row - 1, c: Math.max(range.e.c, 0) }
+      };
+      applyRangeSelection();
       showContextMenu(e.clientX, e.clientY, [
         { label: 'Insert Row Above', action: () => insertRowAtSpecific(row) },
         { label: 'Delete Row', action: () => deleteRowAtSpecific(row) }
@@ -242,26 +256,39 @@ export function bindGridHeaderEvents() {
     });
   });
 
-  // Column header click / context menu
-  container.querySelectorAll('th.col-header').forEach(th => {
-    th.addEventListener('click', () => {
-      const colIndex = parseInt(th.dataset.colIndex, 10);
-      const colLetter = th.dataset.col;
+  // Column header click / context menu (modern grid)
+  container.querySelectorAll('.col-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const colIndex = parseInt(header.dataset.colIndex, 10);
+      const colLetter = header.dataset.col;
       if (!isFinite(colIndex)) return;
       AppState.selectedCols = [colIndex];
       AppState.selectedRows = [];
       AppState.activeCell = { r: 0, c: colIndex };
       const refEl = document.getElementById('cell-reference');
       if (refEl) refEl.textContent = `${colLetter}${(AppState.activeCell.r || 0) + 1}`;
-      applySelectionHighlight();
+      // Highlight full column via selection range
+      const ws = getWorksheet();
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      selectionState.selectedRange = {
+        s: { r: 0, c: colIndex },
+        e: { r: Math.max(range.e.r, 0), c: colIndex }
+      };
+      applyRangeSelection();
     });
 
-    th.addEventListener('contextmenu', (e) => {
+    header.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const colIndex = parseInt(th.dataset.colIndex, 10);
+      const colIndex = parseInt(header.dataset.colIndex, 10);
       AppState.selectedCols = [colIndex];
       AppState.selectedRows = [];
-      applySelectionHighlight();
+      const ws = getWorksheet();
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      selectionState.selectedRange = {
+        s: { r: 0, c: colIndex },
+        e: { r: Math.max(range.e.r, 0), c: colIndex }
+      };
+      applyRangeSelection();
       showContextMenu(e.clientX, e.clientY, [
         { label: 'Insert Column Left', action: () => insertColumnAtSpecificIndex(colIndex) },
         { label: 'Delete Column', action: () => deleteColumnAtSpecificIndex(colIndex) }
@@ -269,15 +296,15 @@ export function bindGridHeaderEvents() {
     });
   });
 
-  // Enhanced cell interactions with drag selection
-  container.querySelectorAll('td[data-cell]').forEach(td => {
-    const cellRef = td.dataset.cell;
+  // Enhanced cell interactions with drag selection (modern grid)
+  container.querySelectorAll('.modern-cell[data-cell]').forEach(cellEl => {
+    const cellRef = cellEl.dataset.cell;
     const cellCoords = XLSX.utils.decode_cell(cellRef);
-    
+
     // Mouse down for selection start
-    td.addEventListener('mousedown', (e) => {
+    cellEl.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return; // Only left click
-      
+
       if (e.ctrlKey || e.metaKey) {
         // Multi-select mode
         toggleCellSelection(cellRef);
@@ -289,23 +316,23 @@ export function bindGridHeaderEvents() {
         startSelection(cellCoords);
       }
     });
-    
+
     // Mouse enter for drag selection
-    td.addEventListener('mouseenter', (e) => {
+    cellEl.addEventListener('mouseenter', (e) => {
       if (selectionState.isSelecting && e.buttons === 1) {
         extendSelectionTo(cellCoords);
       }
     });
-    
+
     // Mouse up to end selection
-    td.addEventListener('mouseup', (e) => {
+    cellEl.addEventListener('mouseup', (e) => {
       if (e.button === 0) {
         endSelection();
       }
     });
-    
+
     // Context menu
-    td.addEventListener('contextmenu', (e) => {
+    cellEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       showContextMenu(e.clientX, e.clientY, [
         { label: 'Cut', action: () => cutCell(cellRef) },
@@ -486,9 +513,10 @@ function applyRangeSelection() {
   for (let r = selectionState.selectedRange.s.r; r <= selectionState.selectedRange.e.r; r++) {
     for (let c = selectionState.selectedRange.s.c; c <= selectionState.selectedRange.e.c; c++) {
       const addr = XLSX.utils.encode_cell({ r, c });
-      const cellElement = container.querySelector(`td[data-cell="${addr}"]`);
+      const cellElement = container.querySelector(`.modern-cell[data-cell="${addr}"]`);
       if (cellElement) {
         cellElement.classList.add('selected-range', 'bg-blue-100', 'ring-1', 'ring-blue-300');
+        cellElement.setAttribute('aria-selected', 'true');
       }
     }
   }
@@ -505,18 +533,26 @@ function clearSelection() {
 function clearPreviousSelection() {
   const container = document.getElementById('spreadsheet');
   if (!container) return;
-  
-  container.querySelectorAll('.selected-range, .ai-selected').forEach(el => {
-    el.classList.remove('selected-range', 'ai-selected', 'bg-blue-100', 'ring-1', 'ring-blue-300');
+
+  container.querySelectorAll('.selected-range, .ai-selected, .multi-selected').forEach(el => {
+    el.classList.remove('selected-range', 'ai-selected', 'multi-selected', 'bg-blue-100', 'bg-yellow-100', 'ring-1', 'ring-blue-300', 'ring-yellow-300');
+    el.removeAttribute('aria-selected');
   });
 }
 
 function toggleCellSelection(cellRef) {
   const container = document.getElementById('spreadsheet');
-  const cellElement = container.querySelector(`td[data-cell="${cellRef}"]`);
-  
-  if (cellElement) {
-    cellElement.classList.toggle('multi-selected', 'bg-yellow-100', 'ring-1', 'ring-yellow-300');
+  const cellElement = container.querySelector(`.modern-cell[data-cell="${cellRef}"]`);
+  if (!cellElement) return;
+
+  const nowSelected = !cellElement.classList.contains('multi-selected');
+  cellElement.classList.toggle('multi-selected', nowSelected);
+  if (nowSelected) {
+    cellElement.classList.add('bg-yellow-100', 'ring-1', 'ring-yellow-300');
+    cellElement.setAttribute('aria-selected', 'true');
+  } else {
+    cellElement.classList.remove('bg-yellow-100', 'ring-1', 'ring-yellow-300');
+    cellElement.removeAttribute('aria-selected');
   }
 }
 
