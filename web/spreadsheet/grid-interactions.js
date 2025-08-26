@@ -4,6 +4,7 @@ import { saveToHistory } from './history-manager.js';
 import { renderSpreadsheetTable, applySelectionHighlight, updateSingleCell } from './grid-renderer.js';
 import { showToast } from '../ui/toast.js';
 import { parseCellValue, expandRefForCell } from '../utils/index.js';
+import { applyEditsOrDryRun } from './operations.js';
 import { registerGlobal, createNamespace } from '../core/global-bindings.js';
 /* global XLSX */
 
@@ -428,7 +429,7 @@ function hideContextMenu() {
 
 // Specific operations from context menu
 async function insertRowAtSpecific(rowNumber) {
-  await applyEdits([{ op: 'insertRow', sheet: AppState.activeSheet, row: rowNumber }]);
+  await applyEditsOrDryRun({ edits: [{ op: 'insertRow', sheet: AppState.activeSheet, row: rowNumber }] });
   showToast(`Inserted row at ${rowNumber}`, 'success');
 }
 
