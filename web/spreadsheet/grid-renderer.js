@@ -6,44 +6,15 @@ import { bindGridHeaderEvents, onCellBlur, onCellFocus, handleCellKeydown } from
 
 // Modern Excel-like Grid Renderer with Clean UI
 
-// Clean, Modern Grid Configuration - Responsive
-function getGridConfig() {
-  const isMobile = window.innerWidth <= 768;
-  const isSmallMobile = window.innerWidth <= 480;
-  
-  return {
-    rowHeight: isMobile ? 44 : 28,
-    colWidth: isSmallMobile ? 70 : (isMobile ? 60 : 120),
-    headerHeight: isMobile ? 44 : 32,
-    rowHeaderWidth: isSmallMobile ? 40 : (isMobile ? 44 : 60),
-    visibleRows: 20,
-    visibleCols: 10
-  };
-}
-
-// Apply mobile class immediately on module load
-function applyInitialMobileClass() {
-  const isMobile = window.innerWidth <= 768;
-  const isSmallMobile = window.innerWidth <= 480;
-  
-  // Clear existing mobile classes
-  document.body.classList.remove('mobile-layout', 'small-mobile-layout');
-  
-  if (isSmallMobile) {
-    document.body.classList.add('small-mobile-layout');
-    console.log('🔥 INIT: Applied small-mobile-layout');
-  } else if (isMobile) {
-    document.body.classList.add('mobile-layout');
-    console.log('🔥 INIT: Applied mobile-layout');
-  } else {
-    console.log('🔥 INIT: Using desktop layout');
-  }
-}
-
-// Apply mobile class on initial load
-applyInitialMobileClass();
-
-const GRID_CONFIG = getGridConfig();
+// Clean, Modern Grid Configuration - CSS handles responsiveness
+const GRID_CONFIG = {
+  rowHeight: 28,    // Base desktop size, mobile override in CSS
+  colWidth: 120,    // Base desktop size, mobile override in CSS 
+  headerHeight: 32, // Base desktop size, mobile override in CSS
+  rowHeaderWidth: 60, // Base desktop size, mobile override in CSS
+  visibleRows: 20,
+  visibleCols: 10
+};
 
 // Enhanced render state for incremental updates
 let renderState = {
@@ -311,29 +282,12 @@ function renderModernGrid(container, ws) {
   const ref = ws['!ref'] || 'A1:Z100';
   const range = XLSX.utils.decode_range(ref);
   
-  // Get responsive config and apply mobile classes
-  const config = getGridConfig();
-  const maxRows = Math.max(range.e.r + 1, config.visibleRows);
-  const maxCols = Math.max(range.e.c + 1, config.visibleCols);
+  const maxRows = Math.max(range.e.r + 1, GRID_CONFIG.visibleRows);
+  const maxCols = Math.max(range.e.c + 1, GRID_CONFIG.visibleCols);
   
-  // Determine mobile layout class
-  const isMobile = window.innerWidth <= 768;
-  const isSmallMobile = window.innerWidth <= 480;
-  let layoutClass = '';
-  
-  if (isSmallMobile) {
-    layoutClass = 'small-mobile-layout';
-    console.log('🔥 MOBILE: Applying small-mobile-layout for width', window.innerWidth);
-  } else if (isMobile) {
-    layoutClass = 'mobile-layout';
-    console.log('🔥 MOBILE: Applying mobile-layout for width', window.innerWidth);
-  } else {
-    console.log('🔥 MOBILE: Using desktop layout for width', window.innerWidth);
-  }
-  
-  // Create clean modern grid structure with responsive class
+  // Create clean modern grid structure - CSS handles responsive sizing
   const html = `
-    <div class="modern-spreadsheet ${layoutClass}">
+    <div class="modern-spreadsheet">
       <div class="grid-header">
         <div class="corner-cell"></div>
         ${generateColumnHeaders(maxCols)}
@@ -345,15 +299,6 @@ function renderModernGrid(container, ws) {
   `;
   
   container.innerHTML = html;
-  
-  // Also add the layout class to body for global CSS targeting
-  document.body.className = document.body.className.replace(/(?:^|\s)(?:mobile-layout|small-mobile-layout)(?:\s|$)/g, ' ');
-  if (layoutClass) {
-    document.body.classList.add(layoutClass);
-    console.log('🔥 MOBILE: Applied body class:', layoutClass, '- Body classes now:', document.body.className);
-  } else {
-    console.log('🔥 MOBILE: No mobile class applied - Body classes:', document.body.className);
-  }
   
   // Add modern event handlers
   setTimeout(() => {
@@ -390,7 +335,7 @@ function generateGridRows(ws, maxRows, maxCols) {
 }
 
 function generateRowCells(ws, row, maxCols) {
-  const fragment = document.createDocumentFragment();
+  let html = '';
   
   for (let c = 0; c < maxCols; c++) {
     const addr = XLSX.utils.encode_cell({ r: row, c });
@@ -417,40 +362,35 @@ function generateRowCells(ws, row, maxCols) {
       }
     }
     
-    const cellDiv = document.createElement('div');
-    cellDiv.className = `modern-cell ${hasFormula ? 'has-formula' : ''}`;
-    cellDiv.setAttribute('data-cell', addr);
-    cellDiv.setAttribute('data-row', row + 1);
-    cellDiv.setAttribute('data-row-index', row);
-    cellDiv.setAttribute('data-col', c);
-    
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = value; // No escaping needed for .value
-    input.className = 'cell-input';
-    input.addEventListener('focus', (e) => onCellFocus(addr, e.target));
-    input.addEventListener('blur', (e) => onCellBlur(addr, e.target));
-    input.addEventListener('keydown', (e) => handleCellKeydown(e, addr));
-    
-    cellDiv.appendChild(input);
-    fragment.appendChild(cellDiv);
+    // Generate HTML string (event handlers will be added later)
+    html += `
+      <div class="modern-cell ${hasFormula ? 'has-formula' : ''}" 
+           data-cell="${addr}" 
+           data-row="${row + 1}" 
+           data-row-index="${row}" 
+           data-col="${c}">
+        <input type="text" class="cell-input" value="${String(value || '').replace(/"/g, '&quot;')}">
+      </div>`;
   }
   
-  // This is a trick to return HTML string from a fragment
-  const dummyDiv = document.createElement('div');
-  dummyDiv.appendChild(fragment);
-  return dummyDiv.innerHTML;
+  return html;
 }
 
 function addModernInteractions() {
   const container = document.getElementById('spreadsheet');
-  if (!container) return;
+  if (!container) {
+    console.error('🔥 INTERACTIONS: Spreadsheet container not found!');
+    return;
+  }
+  
+  // Set up event delegation for cell interactions
 
   // Delegated event listeners for cells
   container.addEventListener('focusin', (e) => {
     if (e.target.classList.contains('cell-input')) {
       const cellElement = e.target.closest('.modern-cell');
       if (cellElement) {
+        // Cell focused
         onCellFocus(cellElement.dataset.cell, e.target);
       }
     }
@@ -522,28 +462,17 @@ function addResponsiveHandler() {
   const handleResize = () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      console.log('🔥 RESIZE: Window resized to', window.innerWidth + 'x' + window.innerHeight);
-      // Apply mobile class first
-      applyInitialMobileClass();
-      // Then force re-render
+      // Re-render grid on resize for dynamic content
       renderSpreadsheetTable(true);
     }, 250);
   };
   
   window.addEventListener('resize', handleResize);
   
-  // Also handle orientation change on mobile
+  // Handle orientation change on mobile devices
   window.addEventListener('orientationchange', () => {
-    console.log('🔥 ORIENTATION: Changed');
     setTimeout(() => {
-      applyInitialMobileClass();
       renderSpreadsheetTable(true);
     }, 300);
   });
-  
-  // Initial check in case the handler is added after load
-  setTimeout(() => {
-    console.log('🔥 HANDLER: Initial mobile check');
-    applyInitialMobileClass();
-  }, 100);
 }

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Unified Responsive Grid Test</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    .test-header {
+      background: #007cba;
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+    .info-bar {
+      background: #f8f9fa;
+      padding: 10px;
+      border-bottom: 2px solid #e9ecef;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .grid-container {
+      height: calc(100vh - 120px);
+      overflow: auto;
+      border: 2px solid #007cba;
+    }
+    .resize-instructions {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      background: rgba(0, 123, 186, 0.9);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-header">
+    <h1>Unified Responsive Grid Test</h1>
+    <p>All modes now follow the same responsive logic - no more separate desktop/mobile classes!</p>
+  </div>
+  
+  <div class="info-bar" id="info-bar">
+    Loading measurements...
+  </div>
+  
+  <div class="grid-container">
+    <div id="spreadsheet">
+      <div class="modern-spreadsheet">
+        <div class="grid-header">
+          <div class="corner-cell">C</div>
+          <div class="col-header">A</div>
+          <div class="col-header">B</div>
+          <div class="col-header">C</div>
+          <div class="col-header">D</div>
+          <div class="col-header">E</div>
+          <div class="col-header">F</div>
+          <div class="col-header">G</div>
+          <div class="col-header">H</div>
+        </div>
+        <div class="grid-body">
+          <div class="grid-row">
+            <div class="row-header">1</div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Responsive"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Desktop"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="120px"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="→"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Mobile"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="60px"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="→"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Small 70px"></div>
+          </div>
+          <div class="grid-row">
+            <div class="row-header">2</div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="CSS"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Media"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Queries"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Handle"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="All"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Responsive"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Logic"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Now"></div>
+          </div>
+          <div class="grid-row">
+            <div class="row-header">3</div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="No"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="More"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="JavaScript"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Classes"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Needed"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="For"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="Mobile"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="resize-instructions">
+    📱 <strong>Test Instructions:</strong> Resize browser window or use dev tools mobile mode. 
+    Watch cells change: <strong>>768px = 120px</strong> | <strong>≤768px = 60px</strong> | <strong>≤480px = 70px</strong>
+  </div>
+  
+  <script>
+    function updateInfo() {
+      const windowSize = `${window.innerWidth} × ${window.innerHeight}px`;
+      
+      // Check what sizes we should expect
+      let expectedCell, expectedCorner;
+      if (window.innerWidth <= 480) {
+        expectedCell = '70px × 44px';
+        expectedCorner = '40px × 44px';
+      } else if (window.innerWidth <= 768) {
+        expectedCell = '60px × 44px';
+        expectedCorner = '44px × 44px';
+      } else {
+        expectedCell = '120px × 28px';
+        expectedCorner = '60px × 32px';
+      }
+      
+      // Get actual measurements
+      const cell = document.querySelector('.modern-cell');
+      const corner = document.querySelector('.corner-cell');
+      
+      const cellStyle = cell ? window.getComputedStyle(cell) : null;
+      const cornerStyle = corner ? window.getComputedStyle(corner) : null;
+      
+      const actualCell = cellStyle ? `${cellStyle.width} × ${cellStyle.height}` : 'not found';
+      const actualCorner = cornerStyle ? `${cornerStyle.width} × ${cornerStyle.height}` : 'not found';
+      
+      // Check if it matches expectations
+      const cellMatches = actualCell === expectedCell;
+      const cornerMatches = actualCorner === expectedCorner;
+      const overallStatus = cellMatches && cornerMatches ? '✅ CORRECT' : '❌ WRONG';
+      
+      document.getElementById('info-bar').innerHTML = `
+        <strong>Window:</strong> ${windowSize} | 
+        <strong>Body Classes:</strong> ${document.body.className || 'none'} | 
+        <strong>Cell:</strong> ${actualCell} (expected: ${expectedCell}) | 
+        <strong>Corner:</strong> ${actualCorner} (expected: ${expectedCorner}) | 
+        <strong>Status:</strong> <span style="color: ${cellMatches && cornerMatches ? 'green' : 'red'}">${overallStatus}</span>
+      `;
+    }
+    
+    // Update info continuously
+    updateInfo();
+    setInterval(updateInfo, 500);
+    window.addEventListener('resize', updateInfo);
+    
+    // Test cell interactions
+    const inputs = document.querySelectorAll('.cell-input');
+    inputs.forEach((input, index) => {
+      input.addEventListener('focus', () => {
+        console.log('Cell focused:', input.closest('.modern-cell').dataset.cell);
+      });
+      input.addEventListener('blur', () => {
+        console.log('Cell blurred:', input.closest('.modern-cell').dataset.cell);
+      });
+    });
+    
+    console.log('🎯 Unified responsive test loaded. Resize window to test responsiveness.');
+  </script>
+</body>
+</html>

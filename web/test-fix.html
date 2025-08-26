@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Test Mobile Fix</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .test-info { 
+      position: fixed; 
+      top: 10px; 
+      right: 10px; 
+      background: black; 
+      color: white; 
+      padding: 10px; 
+      font-size: 11px; 
+      z-index: 9999;
+      border-radius: 5px;
+      max-width: 200px;
+    }
+    .container { margin: 20px; }
+  </style>
+</head>
+<body class="mobile-layout">
+  <div class="test-info" id="info">
+    Window: <span id="size">loading...</span><br>
+    Body classes: <span id="classes">loading...</span><br>
+    Cell width: <span id="cell-width">loading...</span>
+  </div>
+  
+  <div class="container">
+    <h1>Mobile Grid Test</h1>
+    <p>This should show 60px wide cells on mobile (≤768px) and 70px on small mobile (≤480px).</p>
+    
+    <div style="overflow: auto; border: 1px solid #ccc; height: 200px; margin: 20px 0;">
+      <div class="modern-spreadsheet">
+        <div class="grid-header">
+          <div class="corner-cell">C</div>
+          <div class="col-header">A</div>
+          <div class="col-header">B</div>
+          <div class="col-header">C</div>
+          <div class="col-header">D</div>
+          <div class="col-header">E</div>
+          <div class="col-header">F</div>
+        </div>
+        <div class="grid-body">
+          <div class="grid-row">
+            <div class="row-header">1</div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="A1"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="B1"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="C1"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="D1"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="E1"></div>
+            <div class="modern-cell"><input type="text" class="cell-input" value="F1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin: 20px 0;">
+      <button onclick="setMobile()">Mobile (60px)</button>
+      <button onclick="setSmallMobile()">Small Mobile (70px)</button>
+      <button onclick="setDesktop()">Desktop (120px)</button>
+    </div>
+  </div>
+  
+  <script>
+    function updateInfo() {
+      const cell = document.querySelector('.modern-cell');
+      const cellStyle = cell ? window.getComputedStyle(cell) : null;
+      
+      document.getElementById('size').textContent = window.innerWidth + 'x' + window.innerHeight;
+      document.getElementById('classes').textContent = document.body.className || 'none';
+      document.getElementById('cell-width').textContent = cellStyle ? cellStyle.width : 'not found';
+    }
+    
+    function setMobile() {
+      document.body.className = 'mobile-layout';
+      updateInfo();
+    }
+    
+    function setSmallMobile() {
+      document.body.className = 'small-mobile-layout';
+      updateInfo();
+    }
+    
+    function setDesktop() {
+      document.body.className = '';
+      updateInfo();
+    }
+    
+    // Auto-detect and set initial class
+    function autoDetect() {
+      const isMobile = window.innerWidth <= 768;
+      const isSmallMobile = window.innerWidth <= 480;
+      
+      if (isSmallMobile) {
+        document.body.className = 'small-mobile-layout';
+      } else if (isMobile) {
+        document.body.className = 'mobile-layout';
+      } else {
+        document.body.className = '';
+      }
+      updateInfo();
+    }
+    
+    // Initialize
+    autoDetect();
+    window.addEventListener('resize', autoDetect);
+    setInterval(updateInfo, 1000);
+  </script>
+</body>
+</html>

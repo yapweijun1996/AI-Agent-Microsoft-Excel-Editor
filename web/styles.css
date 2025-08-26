@@ -209,6 +209,83 @@ td[data-cell]:hover {
   flex-shrink: 0;
 }
 
+/* Mobile responsive corner cell */
+/* Unified responsive system - consolidates all grid media queries */
+@media (max-width: 768px) {
+  .corner-cell {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+  }
+  
+  .col-header {
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    height: 44px !important;
+    font-size: 12px;
+  }
+  
+  .row-header {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    font-size: 11px;
+  }
+  
+  .modern-cell {
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    height: 44px !important;
+  }
+  
+  .cell-input {
+    font-size: 12px !important;
+    padding: 8px !important;
+    min-height: 40px !important;
+    height: 40px !important;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 480px) {
+  .corner-cell {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 44px !important;
+  }
+  
+  .col-header {
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+    height: 44px !important;
+    font-size: 11px;
+  }
+  
+  .row-header {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 44px !important;
+    font-size: 10px;
+  }
+  
+  .modern-cell {
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+    height: 44px !important;
+  }
+  
+  .cell-input {
+    font-size: 11px !important;
+    padding: 4px !important;
+    min-height: 40px !important;
+    height: 40px !important;
+  }
+}
+
 .col-header {
   width: 120px;
   min-width: 120px;
@@ -228,6 +305,7 @@ td[data-cell]:hover {
   flex-shrink: 0;
   box-sizing: border-box;
 }
+
 
 .col-header:hover {
   background: #e2e8f0;
@@ -272,12 +350,13 @@ td[data-cell]:hover {
   z-index: 10;
 }
 
+
 .row-header:hover {
   background: #e2e8f0;
   color: #475569;
 }
 
-/* Modern Cells */
+/* Modern Cells - Unified Responsive */
 .modern-cell {
   width: 120px;
   min-width: 120px;
@@ -290,6 +369,8 @@ td[data-cell]:hover {
   flex-shrink: 0;
   box-sizing: border-box;
 }
+
+/* Responsive breakpoints */
 
 .modern-cell:hover,
 .modern-cell.hovered {
@@ -333,6 +414,8 @@ td[data-cell]:hover {
   font-family: inherit;
   line-height: 1.2;
 }
+
+/* Mobile responsive cell inputs */
 
 .cell-input:focus {
   background: #ffffff;
@@ -400,9 +483,12 @@ td[data-cell]:hover {
 }
 
 /* Responsive adjustments */
+/* Mobile-specific overrides with media queries */
 @media (max-width: 768px) {
   .modern-spreadsheet {
     overflow: hidden; /* Let parent handle scrolling */
+    min-width: fit-content !important;
+    width: auto !important;
   }
   
   #spreadsheet {
@@ -414,14 +500,9 @@ td[data-cell]:hover {
   .grid-row {
     min-width: fit-content;
   }
+}
 
-  .modern-cell,
-  .col-header {
-    width: 60px !important; /* Smaller but still usable */
-    min-width: 60px !important;
-    max-width: 60px !important;
-    flex-shrink: 0; /* Prevent flexbox shrinking */
-  }
+  /* These rules are now handled by body.mobile-layout classes above */
   
   .row-header,
   .corner-cell {
@@ -1274,17 +1355,7 @@ button:active {
     flex-shrink: 0 !important;
   }
   
-  /* Grid layout fixes for mobile */
-  .modern-spreadsheet {
-    min-width: fit-content !important;
-    width: auto !important;
-  }
-  
-  .grid-header,
-  .grid-row {
-    min-width: fit-content !important;
-    width: auto !important;
-  }
+  /* Grid layout fixes moved to class-based rules above */
   
   /* Larger touch areas for better usability */
   .cell-input {
@@ -1322,29 +1393,7 @@ button:active {
   }
 }
 
-/* Compact grid measurements on very small screens - maintain touch targets */
-@media (max-width: 480px) {
-  .modern-cell,
-  .col-header {
-    width: 70px !important;
-    min-width: 70px !important;
-    height: 44px !important; /* Keep minimum touch target */
-  }
-  
-  .row-header,
-  .corner-cell {
-    width: 40px !important;
-    min-width: 40px !important;
-    height: 44px !important;
-  }
-  
-  .cell-input {
-    font-size: 11px !important;
-    padding: 4px !important;
-    min-height: 40px !important;
-    height: 40px !important;
-  }
-}
+/* Rules consolidated above in unified responsive system */
 
 /* Account for notches/home indicators on iOS when AI panel is open */
 @supports (padding: env(safe-area-inset-bottom)) {
@@ -1355,51 +1404,6 @@ button:active {
   }
 }
 
-/* Mobile detection and forced layout - High specificity */
-body.mobile-layout .modern-spreadsheet .modern-cell,
-body.mobile-layout .modern-spreadsheet .col-header {
-  width: 60px !important;
-  min-width: 60px !important;
-  max-width: 60px !important;
-  height: 44px !important;
-}
-
-body.mobile-layout .modern-spreadsheet .corner-cell,
-body.mobile-layout .modern-spreadsheet .row-header {
-  width: 44px !important;
-  min-width: 44px !important;
-  max-width: 44px !important;
-  height: 44px !important;
-}
-
-body.mobile-layout .modern-spreadsheet .cell-input {
-  font-size: 12px !important;
-  padding: 8px !important;
-  height: 40px !important;
-  min-height: 40px !important;
-}
-
-body.small-mobile-layout .modern-spreadsheet .modern-cell,
-body.small-mobile-layout .modern-spreadsheet .col-header {
-  width: 70px !important;
-  min-width: 70px !important;
-  max-width: 70px !important;
-  height: 44px !important;
-}
-
-body.small-mobile-layout .modern-spreadsheet .corner-cell,
-body.small-mobile-layout .modern-spreadsheet .row-header {
-  width: 40px !important;
-  min-width: 40px !important;
-  max-width: 40px !important;
-  height: 44px !important;
-}
-
-body.small-mobile-layout .modern-spreadsheet .cell-input {
-  font-size: 11px !important;
-  padding: 4px !important;
-  height: 40px !important;
-  min-height: 40px !important;
-}
+/* Old class-based mobile rules removed - now using media queries above */
 
 /* Mobile responsiveness is now handled by JavaScript classes */

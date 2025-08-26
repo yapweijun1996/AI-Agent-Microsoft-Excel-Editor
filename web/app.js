@@ -32,6 +32,9 @@ function isFirstVisit() {
   return !localStorage.getItem('hasVisited');
 }
 
+// Responsive layout handled entirely by CSS media queries
+// All desktop/mobile logic removed - unified responsive system
+
 // Main App Initialization
 async function main() {
   showLoadingOverlay();
@@ -62,6 +65,23 @@ async function main() {
       showWelcomeModal();
       localStorage.setItem('hasVisited', 'true');
     }
+    
+    // CSS media queries handle responsiveness automatically
+    // Re-render grid on resize for any dynamic content updates
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        renderSpreadsheetTable(true);
+      }, 250);
+    });
+    
+    // Handle orientation change
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        renderSpreadsheetTable(true);
+      }, 300);
+    });
   } catch (e) {
     console.error("Initialization failed", e);
     hideLoadingOverlay();

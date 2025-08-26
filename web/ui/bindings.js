@@ -279,15 +279,35 @@ export function bindUI() {
 
   const formulaBar = document.getElementById('formula-bar');
   if (formulaBar) {
+    // Formula bar found, setting up events
     const updateFromFormulaBar = () => {
       const cellRef = document.getElementById('cell-reference').textContent;
+      // Updating cell from formula bar
       if (cellRef) {
         updateCell(cellRef, formulaBar.value);
+        // Also update the corresponding cell input
+        const cellInput = document.querySelector(`input[data-cell="${cellRef}"]`);
+        if (!cellInput) {
+          // Try alternative selector
+          const cellElement = document.querySelector(`[data-cell="${cellRef}"]`);
+          const input = cellElement?.querySelector('.cell-input');
+          if (input) {
+            input.value = formulaBar.value;
+            // Cell input updated via alternative selector
+          } else {
+            // Could not find cell input
+          }
+        } else {
+          cellInput.value = formulaBar.value;
+          // Cell input updated directly
+        }
       }
     };
 
     formulaBar.addEventListener('keypress', (e) => {
+      // Formula bar key pressed
       if (e.key === 'Enter') {
+        // Enter pressed in formula bar
         updateFromFormulaBar();
         e.preventDefault();
         // Optionally, move focus back to the grid or a specific cell
@@ -295,8 +315,19 @@ export function bindUI() {
     });
 
     formulaBar.addEventListener('blur', () => {
+      // Formula bar blurred
       updateFromFormulaBar();
     });
+    
+    formulaBar.addEventListener('input', (e) => {
+      // Formula bar input changed
+    });
+    
+    formulaBar.addEventListener('focus', () => {
+      // Formula bar focused
+    });
+  } else {
+    console.error('Formula bar element not found');
   }
 
   document.getElementById('format-bold')?.addEventListener('click', () => applyFormat('bold'));

@@ -60,15 +60,30 @@ function moveToCell(row, col) {
 // Cell & Grid Logic
 
 export function onCellFocus(addr, input) {
+  // Handle cell focus
   const cellRef = XLSX.utils.decode_cell(addr);
   AppState.activeCell = cellRef;
+  
   if (input) {
     input.readOnly = false;
     // Show raw value for formulas
     const ws = getWorksheet();
     const cell = ws[addr];
+    let cellValue = '';
+    
     if (cell && cell.f) {
-      input.value = '=' + cell.f;
+      cellValue = '=' + cell.f;
+      input.value = cellValue;
+    } else if (cell && cell.v !== undefined) {
+      cellValue = String(cell.v);
+      input.value = cellValue;
+    }
+    
+    // Update formula bar with the same value
+    const formulaBar = document.getElementById('formula-bar');
+    if (formulaBar) {
+      formulaBar.value = cellValue;
+      // Formula bar updated
     }
     
     // Auto-select content for easy editing
@@ -82,14 +97,18 @@ export function onCellFocus(addr, input) {
 }
 
 export function onCellBlur(addr, input) {
+  // Handle cell blur
   if (input && input.value !== undefined) {
     // Get the worksheet to check current value
     const ws = getWorksheet();
     const currentCell = ws[addr];
     const currentValue = currentCell ? (currentCell.f ? '=' + currentCell.f : (currentCell.v || '')) : '';
     
+    // Compare values
+    
     // Only update if value changed
     if (String(input.value) !== String(currentValue)) {
+      // Value changed, updating
       updateCell(addr, input.value);
     }
     input.readOnly = true;

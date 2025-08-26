@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desktop Mode Only Test</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 20px;
+      font-family: Arial, sans-serif;
+    }
+    .test-info {
+      background: #f0f8ff;
+      padding: 15px;
+      margin: 20px 0;
+      border-left: 4px solid #007cba;
+    }
+    .grid-container {
+      border: 2px solid #007cba;
+      overflow: auto;
+      height: 300px;
+      margin: 20px 0;
+    }
+    .measurement {
+      background: #fff3cd;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ffeaa7;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <!-- Explicitly NO mobile classes on body -->
+  
+  <h1>Desktop Mode Only Test</h1>
+  
+  <div class="test-info">
+    <strong>This test ensures desktop mode works independently of mobile logic:</strong>
+    <ul style="margin: 10px 0; margin-left: 20px;">
+      <li>Body has NO mobile classes</li>
+      <li>Should display 120px wide cells regardless of window size</li>
+      <li>Should use 28px height for cells</li>
+      <li>Should ignore media queries that might apply mobile styles</li>
+    </ul>
+  </div>
+  
+  <div class="measurement" id="measurements">
+    Loading measurements...
+  </div>
+  
+  <div class="grid-container">
+    <div class="modern-spreadsheet">
+      <div class="grid-header">
+        <div class="corner-cell">C</div>
+        <div class="col-header">A</div>
+        <div class="col-header">B</div>
+        <div class="col-header">C</div>
+        <div class="col-header">D</div>
+        <div class="col-header">E</div>
+        <div class="col-header">F</div>
+      </div>
+      <div class="grid-body">
+        <div class="grid-row">
+          <div class="row-header">1</div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Desktop"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="120px"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Width"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Expected"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Always"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Here"></div>
+        </div>
+        <div class="grid-row">
+          <div class="row-header">2</div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Even"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="On"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Mobile"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Screen"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="Sizes"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="!"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="test-info">
+    <strong>How to test:</strong>
+    <ol style="margin: 10px 0; margin-left: 20px;">
+      <li>Resize browser window to mobile size (≤768px)</li>
+      <li>Cells should STILL be 120px wide (desktop mode)</li>
+      <li>Open browser dev tools and set to mobile device mode</li>
+      <li>Cells should STILL be 120px wide</li>
+      <li>Check that body has no mobile classes in the measurement box</li>
+    </ol>
+    
+    <p><strong>Expected Result:</strong> ✅ Cells are always 120px × 28px regardless of screen size</p>
+    <p><strong>Failure:</strong> ❌ Cells change size based on window width</p>
+  </div>
+  
+  <script>
+    function updateMeasurements() {
+      const windowSize = `${window.innerWidth} × ${window.innerHeight}px`;
+      const bodyClasses = document.body.className || 'NONE (correct for desktop)';
+      
+      const cell = document.querySelector('.modern-cell');
+      const cellStyle = cell ? window.getComputedStyle(cell) : null;
+      const cellWidth = cellStyle ? cellStyle.width : 'not found';
+      const cellHeight = cellStyle ? cellStyle.height : 'not found';
+      
+      const colHeader = document.querySelector('.col-header');
+      const headerStyle = colHeader ? window.getComputedStyle(colHeader) : null;
+      const headerWidth = headerStyle ? headerStyle.width : 'not found';
+      
+      const isCorrect = cellWidth === '120px' && cellHeight === '28px';
+      const status = isCorrect ? '✅ CORRECT' : '❌ WRONG';
+      
+      document.getElementById('measurements').innerHTML = `
+        <strong>Real-time Measurements:</strong><br>
+        Window Size: ${windowSize}<br>
+        Body Classes: <strong>${bodyClasses}</strong><br>
+        Cell Size: <strong>${cellWidth} × ${cellHeight}</strong><br>
+        Header Width: <strong>${headerWidth}</strong><br>
+        Status: <strong style="color: ${isCorrect ? 'green' : 'red'}">${status}</strong>
+      `;
+    }
+    
+    // Update measurements every second and on resize
+    updateMeasurements();
+    setInterval(updateMeasurements, 1000);
+    window.addEventListener('resize', updateMeasurements);
+    
+    // Ensure NO mobile classes are ever applied to body in this test
+    const observer = new MutationObserver(() => {
+      if (document.body.classList.contains('mobile-layout') || 
+          document.body.classList.contains('small-mobile-layout')) {
+        console.error('❌ TEST FAILURE: Mobile classes were applied to body!');
+        document.body.classList.remove('mobile-layout', 'small-mobile-layout');
+      }
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  </script>
+</body>
+</html>
