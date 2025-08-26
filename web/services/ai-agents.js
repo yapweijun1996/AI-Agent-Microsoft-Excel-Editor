@@ -27,6 +27,122 @@ export async function fetchGemini(apiKey, messages, model = 'gemini-2.5-flash') 
   return res.json();
 }
 
+export async function runIntentAgent(userText) {
+  const provider = pickProvider();
+  
+  try {
+    if (provider === 'mock') {
+      const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
+      if (greetings.some(g => userText.toLowerCase().includes(g))) {
+        return { needsTasks: false, intent: 'greeting', response: 'Hello! How can I help you with your spreadsheet today?' };
+      }
+      return { needsTasks: true, intent: 'spreadsheet_operation' };
+    }
+
+    const system = `You are the Intent Agent - an expert at analyzing user input to determine whether it requires spreadsheet task planning or is a conversational message.
+
+ROLE: Classify user input and determine the appropriate response type.
+
+CLASSIFICATION TYPES:
+1. "spreadsheet_operation" - User wants to perform spreadsheet tasks (create, edit, analyze, calculate, format, etc.)
+2. "greeting" - Simple greetings, pleasantries, or casual conversation
+3. "question" - Questions about the application, spreadsheet features, or general help
+4. "clarification" - User asking for clarification or providing additional context
+
+CURRENT CONTEXT:
+- Active sheet: "${AppState.activeSheet}"
+- Total sheets: ${AppState.wb.SheetNames.length}
+- This is a spreadsheet application with AI automation
+
+ANALYSIS CRITERIA:
+- Does the input contain action words related to spreadsheet operations? (add, create, calculate, format, delete, sort, filter, etc.)
+- Is the user requesting data manipulation or analysis?
+- Is it just a greeting or casual conversation?
+- Is the user asking questions about functionality?
+
+OUTPUT FORMAT (JSON):
+{
+  "needsTasks": true/false,
+  "intent": "spreadsheet_operation|greeting|question|clarification", 
+  "confidence": 0.95,
+  "reasoning": "Brief explanation of classification",
+  "response": "Optional conversational response for non-task intents"
+}
+
+EXAMPLES:
+- "hi" → {"needsTasks": false, "intent": "greeting", "confidence": 0.99, "reasoning": "Simple greeting", "response": "Hello! How can I help you with your spreadsheet today?"}
+- "add a sum formula" → {"needsTasks": true, "intent": "spreadsheet_operation", "confidence": 0.95, "reasoning": "Clear spreadsheet operation request"}
+- "how do I save?" → {"needsTasks": false, "intent": "question", "confidence": 0.9, "reasoning": "Question about application functionality", "response": "You can save by pressing Ctrl+S or using the File menu."}`;
+
+    const messages = [{ role: 'system', content: system }, { role: 'user', content: userText }];
+    let data;
+
+    const selectedModel = getSelectedModel();
+    if (provider === 'openai') {
+      data = await fetchOpenAI(AppState.keys.openai, messages, selectedModel);
+    } else {
+      data = await fetchGemini(AppState.keys.gemini, messages, selectedModel);
+    }
+
+    let text = '';
+    try {
+      if (provider === 'openai') {
+        text = data.choices?.[0]?.message?.content || '';
+        if (!text && data.error) {
+          throw new Error(data.error.message || 'OpenAI API error');
+        }
+      } else {
+        text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+        if (!text && data.error) {
+          throw new Error(data.error.message || 'Gemini API error');
+        }
+      }
+    } catch (parseError) {
+      console.error('Failed to parse Intent Agent response:', parseError);
+      // Default to needing tasks on parse error
+      return { needsTasks: true, intent: 'spreadsheet_operation', confidence: 0.5 };
+    }
+
+    if (!text) {
+      return { needsTasks: true, intent: 'spreadsheet_operation', confidence: 0.5 };
+    }
+
+    let result = null;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = extractFirstJson(text);
+    }
+
+    if (result && typeof result.needsTasks === 'boolean') {
+      return result;
+    } else {
+      // Fallback classification based on keywords
+      const taskKeywords = ['add', 'create', 'insert', 'delete', 'calculate', 'sum', 'format', 'sort', 'filter', 'chart', 'formula', 'cell', 'row', 'column'];
+      const greetingKeywords = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
+      
+      const lowerText = userText.toLowerCase();
+      const hasTaskKeywords = taskKeywords.some(k => lowerText.includes(k));
+      const hasGreetingKeywords = greetingKeywords.some(k => lowerText.includes(k));
+      
+      if (hasGreetingKeywords && !hasTaskKeywords) {
+        return { 
+          needsTasks: false, 
+          intent: 'greeting', 
+          confidence: 0.8,
+          response: 'Hello! How can I help you with your spreadsheet today?'
+        };
+      }
+      
+      return { needsTasks: true, intent: 'spreadsheet_operation', confidence: 0.7 };
+    }
+  } catch (error) {
+    console.error('Intent Agent failed:', error);
+    // Default to needing tasks on error
+    return { needsTasks: true, intent: 'spreadsheet_operation', confidence: 0.5 };
+  }
+}
+
 export async function runPlanner(userText) {
   const provider = pickProvider();
   const tasks = [];

@@ -1,6 +1,6 @@
 import { AppState } from '../core/state.js';
 import { escapeHtml } from '../utils/index.js';
-import { runPlanner } from '../services/ai-agents.js';
+import { runPlanner, runIntentAgent } from '../services/ai-agents.js';
 import { saveTasks, drawTasks, executeTasks, runOrchestrator } from '../tasks/task-manager.js';
 import { showToast } from '../ui/toast.js';
 /* global executeTask */
@@ -42,11 +42,29 @@ export async function onSend() {
   drawChat();
   input.value = '';
 
-  const typingMsg = { role: 'assistant', content: '🤔 AI agents are planning your request...', timestamp: Date.now(), isTyping: true };
+  const typingMsg = { role: 'assistant', content: '🤔 AI agents are analyzing your request...', timestamp: Date.now(), isTyping: true };
   AppState.messages.push(typingMsg);
   drawChat();
 
   try {
+    // First, check user intent
+    const intentResult = await runIntentAgent(text);
+    AppState.messages = AppState.messages.filter(m => !m.isTyping);
+
+    // If no tasks needed, provide conversational response
+    if (!intentResult.needsTasks) {
+      const response = intentResult.response || 'I understand. Is there anything you\'d like me to help you with in your spreadsheet?';
+      const aiMsg = { role: 'assistant', content: response, timestamp: Date.now() };
+      AppState.messages.push(aiMsg);
+      drawChat();
+      return;
+    }
+
+    // Continue with task planning for spreadsheet operations
+    const planningMsg = { role: 'assistant', content: '🤔 AI agents are planning your request...', timestamp: Date.now(), isTyping: true };
+    AppState.messages.push(planningMsg);
+    drawChat();
+
     const tasks = await runPlanner(text);
     AppState.messages = AppState.messages.filter(m => !m.isTyping);
 
