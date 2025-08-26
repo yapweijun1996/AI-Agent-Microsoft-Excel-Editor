@@ -372,6 +372,32 @@ table.ai-grid {
   color: #ef4444; /* red-500 */
 }
 
+/* Ribbon Tab Styles */
+.ribbon-tab {
+  padding: 0.375rem 0.75rem; /* px-3 py-1.5 */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  font-size: 0.75rem; /* text-xs */
+  font-weight: 400;
+  color: #4b5563; /* gray-600 */
+  border-radius: 0.25rem 0.25rem 0 0;
+  position: relative;
+}
+
+.ribbon-tab:hover:not(.active) {
+  background: #f3f4f6; /* gray-100 */
+  color: #374151; /* gray-700 */
+}
+
+.ribbon-tab.active {
+  background: #f9fafb; /* gray-50 */
+  color: #111827; /* gray-900 */
+  font-weight: 500;
+  border-bottom: 2px solid #3b82f6; /* blue-500 */
+}
+
 /* Enhanced animations and transitions */
 @keyframes fadeInUp {
   from {

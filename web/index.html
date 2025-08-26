@@ -95,6 +95,31 @@
         </div>
       </div>
 
+      <!-- Page Layout Ribbon -->
+      <div id="page-layout-ribbon" class="hidden items-center space-x-4">
+        <!-- Page Setup -->
+        <div class="flex flex-col items-center space-y-1">
+          <div class="flex space-x-1">
+            <button id="orientation-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Orientation</button>
+            <button id="margins-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Margins</button>
+          </div>
+          <span class="text-xs text-gray-500">Page Setup</span>
+        </div>
+      </div>
+
+      <!-- Formulas Ribbon -->
+      <div id="formulas-ribbon" class="hidden items-center space-x-4">
+        <!-- Function Library -->
+        <div class="flex flex-col items-center space-y-1">
+          <div class="flex space-x-1">
+            <button id="sum-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">SUM</button>
+            <button id="avg-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">AVG</button>
+            <button id="count-btn" class="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">COUNT</button>
+          </div>
+          <span class="text-xs text-gray-500">Functions</span>
+        </div>
+      </div>
+
       <!-- Data Ribbon -->
       <div id="data-ribbon" class="hidden items-center space-x-4">
         <!-- Sort & Filter -->
@@ -109,8 +134,8 @@
         <!-- AI Setup -->
         <div class="flex flex-col items-center space-y-1 px-2">
           <div class="flex space-x-1">
-            <button id="openai-key-btn" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">OpenAI</button>
-            <button id="gemini-key-btn" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">Gemini</button>
+            <button id="openai-key-btn" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Set OpenAI Key</button>
+            <button id="gemini-key-btn" class="px-2 py-1 text-xs text-white rounded bg-green-600 hover:bg-green-700">✓ Gemini Ready</button>
           </div>
           <span class="text-xs text-gray-500">API Keys</span>
         </div>
@@ -262,6 +287,6 @@
   <script src="https://cdn.jsdelivr.net/npm/hot-formula-parser@4.0.0/dist/formula-parser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./FormulaEngine.js"></script>
-  <script src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
