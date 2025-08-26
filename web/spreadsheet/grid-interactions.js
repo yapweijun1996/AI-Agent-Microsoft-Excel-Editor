@@ -23,6 +23,24 @@ function updateAddressBar(addr) {
   }
 }
 
+// Move to a specific cell and focus it
+function moveToCell(row, col) {
+  const addr = XLSX.utils.encode_cell({ r: row, c: col });
+  AppState.activeCell = { r: row, c: col };
+  
+  // Update address bar
+  updateAddressBar(addr);
+  
+  // Try to focus the cell input
+  const cellInput = document.querySelector(`input[data-cell="${addr}"]`);
+  if (cellInput) {
+    cellInput.focus();
+  }
+  
+  // Re-render the spreadsheet to show the new selection
+  renderSpreadsheetTable();
+}
+
 // Cell & Grid Logic
 
 export function updateCell(addr, value) {
@@ -788,6 +806,7 @@ function initializeGridGlobals() {
   createNamespace('GridInteractions', {
     updateCell,
     updateAddressBar,
+    moveToCell,
     handleCellKeydown: function (event, addr) {
       const cell = XLSX.utils.decode_cell(addr);
       const ws = getWorksheet();
@@ -844,7 +863,8 @@ function initializeGridGlobals() {
       }
     },
     onCellFocus: function (addr, input) {
-      AppState.selectedCell = addr;
+      const cellRef = XLSX.utils.decode_cell(addr);
+      AppState.activeCell = cellRef;
       if (input) {
         input.readOnly = false;
         // Show raw value for formulas
