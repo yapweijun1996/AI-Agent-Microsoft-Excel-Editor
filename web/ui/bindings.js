@@ -12,6 +12,7 @@ import { renderSpreadsheetTable } from '../spreadsheet/grid-renderer.js';
 import { pickProvider, getSelectedModel } from '../services/api-keys.js';
 import { executeTasks } from '../tasks/task-manager.js';
 /* global XLSX, Chart */
+// Fixed version - no formulaBar variable references
 
 // UI bindings
 function initKeyboardShortcuts() {
@@ -170,7 +171,6 @@ export function bindUI() {
     importInput.addEventListener('change', () => { if (importInput.files?.[0]) importFromFile(importInput.files[0]); });
   }
 
-
   document.getElementById('execute-all-tasks')?.addEventListener('click', () => {
     const pendingTasks = AppState.tasks.filter(t => t.status === 'pending');
     if (pendingTasks.length === 0) {
@@ -200,10 +200,11 @@ export function bindUI() {
     document.getElementById('task-modal').classList.add('hidden');
   });
 
+  // Fixed formula bar handler - no bare formulaBar variable
   document.getElementById('formula-bar')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       const cellRef = document.getElementById('cell-reference').textContent;
-      updateCell(cellRef, e.target.value);
+      updateCell(cellRef, e.target.value); // Using e.target.value instead of formulaBar.value
       e.preventDefault();
     }
   });
