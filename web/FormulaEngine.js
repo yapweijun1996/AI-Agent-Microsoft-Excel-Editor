@@ -61,7 +61,8 @@ class FormulaEngine {
     const expr = (typeof formula === 'string' && formula.startsWith('=')) ? formula.slice(1) : formula;
 
     // Create a robust cache key that includes workbook version and cell context
-    const cacheKey = `${this.cacheVersion}:${activeSheetName || this.activeSheetName}:${cellAddress || ''}:${AppState.wbVersion}:${expr}`;
+    const wbVersion = (typeof AppState !== 'undefined' && AppState.wbVersion) ? AppState.wbVersion : 0;
+    const cacheKey = `${this.cacheVersion}:${activeSheetName || this.activeSheetName}:${cellAddress || ''}:${wbVersion}:${expr}`;
     
     // Check cache first
     if (this.formulaCache.has(cacheKey)) {
