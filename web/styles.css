@@ -398,6 +398,13 @@ table.ai-grid {
   border-bottom: 2px solid #3b82f6; /* blue-500 */
 }
 
+/* Format button states */
+.format-btn-active {
+  background: #dbeafe !important; /* blue-100 */
+  color: #1e40af !important; /* blue-800 */
+  border: 1px solid #3b82f6 !important; /* blue-500 */
+}
+
 /* Enhanced animations and transitions */
 @keyframes fadeInUp {
   from {

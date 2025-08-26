@@ -4,14 +4,13 @@ import { onSend } from '../chat/chat-ui.js';
 import { exportXLSX, exportCSV, importFromFile } from '../file/import-export.js';
 import { addNewSheet, deleteSheet, switchToSheet } from '../spreadsheet/sheet-manager.js';
 import { undo, redo } from '../spreadsheet/history-manager.js';
-import { insertRowAtSelection, insertColumnAtSelectionLeft, deleteSelectedRow, deleteSelectedColumn, insertFormula, applyFormat } from '../spreadsheet/grid-interactions.js';
+import { insertRowAtSelection, insertColumnAtSelectionLeft, deleteSelectedRow, deleteSelectedColumn, insertFormula, applyFormat, updateFormatButtonStates } from '../spreadsheet/grid-interactions.js';
 import { log } from '../utils/index.js';
 import { showToast } from './toast.js';
 import { debounce } from '../utils/index.js';
 import { renderSpreadsheetTable } from '../spreadsheet/grid-renderer.js';
 import { pickProvider, getSelectedModel } from '../services/api-keys.js';
-import { executeTasks, saveTasks, drawTasks } from '../tasks/task-manager.js';
-import { uuid } from '../utils/index.js';
+import { executeTasks } from '../tasks/task-manager.js';
 /* global XLSX, Chart */
 
 // UI bindings
@@ -171,12 +170,6 @@ export function bindUI() {
     importInput.addEventListener('change', () => { if (importInput.files?.[0]) importFromFile(importInput.files[0]); });
   }
 
-  document.getElementById('add-mock-task')?.addEventListener('click', () => {
-    const t = { id: uuid(), title: 'Mock: Add totals row', description: 'Sum column B into C1', status: 'pending', createdAt: new Date().toISOString() };
-    AppState.tasks.push(t);
-    saveTasks();
-    drawTasks();
-  });
 
   document.getElementById('execute-all-tasks')?.addEventListener('click', () => {
     const pendingTasks = AppState.tasks.filter(t => t.status === 'pending');
@@ -210,7 +203,7 @@ export function bindUI() {
   document.getElementById('formula-bar')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       const cellRef = document.getElementById('cell-reference').textContent;
-      updateCell(cellRef, formulaBar.value);
+      updateCell(cellRef, e.target.value);
       e.preventDefault();
     }
   });

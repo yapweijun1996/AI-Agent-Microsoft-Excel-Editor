@@ -96,6 +96,7 @@ export function renderSpreadsheetTable() {
         font-weight: ${styles.bold ? 'bold' : 'normal'};
         font-style: ${styles.italic ? 'italic' : 'normal'};
         text-decoration: ${styles.underline ? 'underline' : 'none'};
+        color: ${styles.color ? styles.color : 'inherit'};
         background-color: ${styles.fill && styles.fill.fgColor ? `#${styles.fill.fgColor.rgb}` : 'transparent'};
       `;
       const hasComment = cell && cell.c && cell.c.t;

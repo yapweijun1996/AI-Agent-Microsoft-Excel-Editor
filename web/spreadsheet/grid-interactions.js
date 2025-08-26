@@ -70,6 +70,9 @@ window.onCellFocus = function (addr, input) {
         formulaBar.value = '';
       }
     }
+    
+    // Update format button states when cell is focused
+    updateFormatButtonStates();
   } catch (e) { /* no-op */ }
 };
 
@@ -285,6 +288,35 @@ export function insertFormula(formula) {
   }
 }
 
+// Update format button states based on active cell
+export function updateFormatButtonStates() {
+  if (!AppState.activeCell) return;
+  
+  const ws = getWorksheet();
+  const cellRef = XLSX.utils.encode_cell(AppState.activeCell);
+  const cell = ws[cellRef];
+  const styles = cell && cell.s ? cell.s : {};
+  
+  // Update button states
+  const boldBtn = document.getElementById('format-bold');
+  const italicBtn = document.getElementById('format-italic');
+  const underlineBtn = document.getElementById('format-underline');
+  const colorBtn = document.getElementById('format-color');
+  
+  if (boldBtn) {
+    boldBtn.classList.toggle('format-btn-active', !!styles.bold);
+  }
+  if (italicBtn) {
+    italicBtn.classList.toggle('format-btn-active', !!styles.italic);
+  }
+  if (underlineBtn) {
+    underlineBtn.classList.toggle('format-btn-active', !!styles.underline);
+  }
+  if (colorBtn && styles.color) {
+    colorBtn.value = styles.color;
+  }
+}
+
 // Cell formatting helper  
 export function applyFormat(formatType, value) {
   if (!AppState.activeCell) {
@@ -303,25 +335,22 @@ export function applyFormat(formatType, value) {
   
   switch (formatType) {
     case 'bold':
-      cell.s.font = cell.s.font || {};
-      cell.s.font.bold = !cell.s.font.bold;
+      cell.s.bold = !cell.s.bold;
       break;
     case 'italic':
-      cell.s.font = cell.s.font || {};
-      cell.s.font.italic = !cell.s.font.italic;
+      cell.s.italic = !cell.s.italic;
       break;
     case 'underline':
-      cell.s.font = cell.s.font || {};
-      cell.s.font.underline = !cell.s.font.underline;
+      cell.s.underline = !cell.s.underline;
       break;
     case 'color':
-      cell.s.font = cell.s.font || {};
-      cell.s.font.color = { rgb: value.replace('#', '') };
+      cell.s.color = value;
       break;
   }
   
   ws[cellRef] = cell;
   persistSnapshot();
   renderSpreadsheetTable();
+  updateFormatButtonStates(); // Update button states after applying format
   showToast(`Applied ${formatType} formatting`, 'success', 1000);
 }
