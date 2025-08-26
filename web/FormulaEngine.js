@@ -26,8 +26,14 @@ class FormulaEngine {
       return;
     }
     
-    this.parser = new formulaParser.Parser();
-    this.init();
+    try {
+      this.parser = new formulaParser.Parser();
+      this.init();
+      console.log('FormulaEngine initialized successfully');
+    } catch (error) {
+      console.error('Error initializing FormulaEngine:', error);
+      this.parser = null;
+    }
   }
 
   init() {
@@ -67,35 +73,44 @@ class FormulaEngine {
 
     // Return evaluated value or plain text if parser is not available
     if (!this.parser) {
+      console.log('Parser not available, using fallback for formula:', expr);
       // Safe fallback: evaluate simple arithmetic (digits, + - * / . parentheses, whitespace)
       if (typeof expr === 'string' && /^[0-9+\-*/().\s]+$/.test(expr)) {
         try {
           const val = Function('"use strict";return (' + expr + ')')();
           const result = Number.isFinite(val) ? val : expr;
+          console.log('Fallback evaluation result:', result);
           this.setCacheValue(cacheKey, result);
           return result;
-        } catch {
+        } catch (error) {
+          console.log('Fallback evaluation failed:', error);
           this.setCacheValue(cacheKey, expr);
           return expr;
         }
       }
+      console.log('Formula does not match simple arithmetic pattern:', expr);
       this.setCacheValue(cacheKey, expr);
       return expr;
     }
     
     try {
+      console.log('Parsing formula with parser:', expr);
       const result = this.parser.parse(typeof expr === 'string' ? expr : String(expr));
+      console.log('Parser result:', result);
       let finalResult;
       
       if (result.error) {
+        console.log('Parser returned error:', result.error);
         finalResult = { error: result.error, details: "Error from parser" };
       } else {
+        console.log('Parser successful, result:', result.result);
         finalResult = result.result;
       }
       
       this.setCacheValue(cacheKey, finalResult);
       return finalResult;
     } catch (error) {
+      console.log('Parser threw exception:', error);
       const errorResult = { error: "#ERROR!", details: error.message };
       this.setCacheValue(cacheKey, errorResult);
       return errorResult;
