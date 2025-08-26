@@ -42,7 +42,7 @@ function renderTask(task) {
   const showRetry = task.status === 'failed' || task.status === 'blocked';
 
   return `
-    <div class="task-item flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors" data-task-id="${task.id}">
+    <div class="task-item flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors ${task.status === 'in_progress' ? 'animate-pulse' : ''}" data-task-id="${task.id}">
       <div class="flex-1 min-w-0">
         <div class="flex items-center space-x-2 mb-1">
           <h4 class="text-sm font-medium text-gray-900 truncate">${escapeHtml(task.title)}</h4>
@@ -173,7 +173,7 @@ window.deleteTask = function (id) {
   drawTasks();
 };
 
-async function runOrchestrator(tasks) {
+export async function runOrchestrator(tasks) {
   const provider = pickProvider();
 
   if (provider === 'mock') {

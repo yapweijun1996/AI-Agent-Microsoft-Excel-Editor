@@ -1,7 +1,7 @@
 import { AppState } from '../core/state.js';
 import { escapeHtml } from '../utils/index.js';
 import { runPlanner } from '../services/ai-agents.js';
-import { saveTasks, drawTasks, executeTasks } from '../tasks/task-manager.js';
+import { saveTasks, drawTasks, executeTasks, runOrchestrator } from '../tasks/task-manager.js';
 import { showToast } from '../ui/toast.js';
 /* global executeTask */
 
@@ -67,7 +67,8 @@ export async function onSend() {
       drawChat();
 
       if (AppState.autoExecute) {
-        executeTasks(tasks.map(t => t.id));
+        const orchestration = await runOrchestrator(tasks);
+        executeTasks(orchestration.executionPlan.map(p => p.taskId));
       }
     } else {
       // Fallback for simple commands that don't generate tasks
