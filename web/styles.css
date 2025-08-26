@@ -211,6 +211,8 @@ td[data-cell]:hover {
 
 .col-header {
   width: 120px;
+  min-width: 120px;
+  max-width: 120px;
   height: 32px;
   display: flex;
   align-items: center;
@@ -224,6 +226,7 @@ td[data-cell]:hover {
   user-select: none;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .col-header:hover {
@@ -277,12 +280,15 @@ td[data-cell]:hover {
 /* Modern Cells */
 .modern-cell {
   width: 120px;
+  min-width: 120px;
+  max-width: 120px;
   height: 28px;
   border-right: 1px solid #f1f5f9;
   position: relative;
   background: #ffffff;
   transition: all 0.1s ease;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .modern-cell:hover,
@@ -1154,6 +1160,12 @@ button:active {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Fix main container layout for mobile */
+.main-container {
+  width: 100%;
+  min-width: 0;
+}
+
 @media (max-width: 768px) {
   #ribbon-tabs {
     overflow-x: auto;
@@ -1161,6 +1173,10 @@ button:active {
   }
   #ribbon-tabs .ribbon-tab {
     display: inline-block;
+  }
+  
+  .main-container {
+    flex-direction: column;
   }
 }
 
@@ -1225,19 +1241,49 @@ button:active {
 
 /* Better touch targets on mobile - consistent sizing */
 @media (max-width: 768px) {
+  /* Force the Excel panel to allow horizontal scrolling */
+  .main-container > div:first-child {
+    min-width: 0;
+    overflow: hidden;
+  }
+  
+  /* Ensure spreadsheet container can scroll horizontally */
+  .flex-1.overflow-auto {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Grid sizing for mobile */
   .modern-cell,
   .col-header,
   .row-header {
     min-height: 44px !important; /* iOS recommended touch target size */
     min-width: 60px !important; /* Consistent with earlier mobile rules */
     width: 60px !important;
+    max-width: 60px !important;
     height: 44px !important;
+    flex-shrink: 0 !important;
   }
   
   .corner-cell {
     min-width: 44px !important;
     width: 44px !important;
+    max-width: 44px !important;
     height: 44px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Grid layout fixes for mobile */
+  .modern-spreadsheet {
+    min-width: fit-content !important;
+    width: auto !important;
+  }
+  
+  .grid-header,
+  .grid-row {
+    min-width: fit-content !important;
+    width: auto !important;
   }
   
   /* Larger touch areas for better usability */
@@ -1247,6 +1293,8 @@ button:active {
     line-height: 1.4;
     padding: 8px !important;
     font-size: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box;
   }
   
   /* Ensure touch-action is properly set */
@@ -1306,3 +1354,52 @@ button:active {
     }
   }
 }
+
+/* Mobile detection and forced layout - High specificity */
+body.mobile-layout .modern-spreadsheet .modern-cell,
+body.mobile-layout .modern-spreadsheet .col-header {
+  width: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
+  height: 44px !important;
+}
+
+body.mobile-layout .modern-spreadsheet .corner-cell,
+body.mobile-layout .modern-spreadsheet .row-header {
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 44px !important;
+}
+
+body.mobile-layout .modern-spreadsheet .cell-input {
+  font-size: 12px !important;
+  padding: 8px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+}
+
+body.small-mobile-layout .modern-spreadsheet .modern-cell,
+body.small-mobile-layout .modern-spreadsheet .col-header {
+  width: 70px !important;
+  min-width: 70px !important;
+  max-width: 70px !important;
+  height: 44px !important;
+}
+
+body.small-mobile-layout .modern-spreadsheet .corner-cell,
+body.small-mobile-layout .modern-spreadsheet .row-header {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 44px !important;
+}
+
+body.small-mobile-layout .modern-spreadsheet .cell-input {
+  font-size: 11px !important;
+  padding: 4px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+}
+
+/* Mobile responsiveness is now handled by JavaScript classes */

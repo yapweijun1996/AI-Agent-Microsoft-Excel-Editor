@@ -6,15 +6,44 @@ import { bindGridHeaderEvents, onCellBlur, onCellFocus, handleCellKeydown } from
 
 // Modern Excel-like Grid Renderer with Clean UI
 
-// Clean, Modern Grid Configuration
-const GRID_CONFIG = {
-  rowHeight: 28,
-  colWidth: 120,
-  headerHeight: 32,
-  rowHeaderWidth: 60,
-  visibleRows: 20,
-  visibleCols: 10
-};
+// Clean, Modern Grid Configuration - Responsive
+function getGridConfig() {
+  const isMobile = window.innerWidth <= 768;
+  const isSmallMobile = window.innerWidth <= 480;
+  
+  return {
+    rowHeight: isMobile ? 44 : 28,
+    colWidth: isSmallMobile ? 70 : (isMobile ? 60 : 120),
+    headerHeight: isMobile ? 44 : 32,
+    rowHeaderWidth: isSmallMobile ? 40 : (isMobile ? 44 : 60),
+    visibleRows: 20,
+    visibleCols: 10
+  };
+}
+
+// Apply mobile class immediately on module load
+function applyInitialMobileClass() {
+  const isMobile = window.innerWidth <= 768;
+  const isSmallMobile = window.innerWidth <= 480;
+  
+  // Clear existing mobile classes
+  document.body.classList.remove('mobile-layout', 'small-mobile-layout');
+  
+  if (isSmallMobile) {
+    document.body.classList.add('small-mobile-layout');
+    console.log('🔥 INIT: Applied small-mobile-layout');
+  } else if (isMobile) {
+    document.body.classList.add('mobile-layout');
+    console.log('🔥 INIT: Applied mobile-layout');
+  } else {
+    console.log('🔥 INIT: Using desktop layout');
+  }
+}
+
+// Apply mobile class on initial load
+applyInitialMobileClass();
+
+const GRID_CONFIG = getGridConfig();
 
 // Enhanced render state for incremental updates
 let renderState = {
@@ -282,12 +311,29 @@ function renderModernGrid(container, ws) {
   const ref = ws['!ref'] || 'A1:Z100';
   const range = XLSX.utils.decode_range(ref);
   
-  const maxRows = Math.max(range.e.r + 1, GRID_CONFIG.visibleRows);
-  const maxCols = Math.max(range.e.c + 1, GRID_CONFIG.visibleCols);
+  // Get responsive config and apply mobile classes
+  const config = getGridConfig();
+  const maxRows = Math.max(range.e.r + 1, config.visibleRows);
+  const maxCols = Math.max(range.e.c + 1, config.visibleCols);
   
-  // Create clean modern grid structure
+  // Determine mobile layout class
+  const isMobile = window.innerWidth <= 768;
+  const isSmallMobile = window.innerWidth <= 480;
+  let layoutClass = '';
+  
+  if (isSmallMobile) {
+    layoutClass = 'small-mobile-layout';
+    console.log('🔥 MOBILE: Applying small-mobile-layout for width', window.innerWidth);
+  } else if (isMobile) {
+    layoutClass = 'mobile-layout';
+    console.log('🔥 MOBILE: Applying mobile-layout for width', window.innerWidth);
+  } else {
+    console.log('🔥 MOBILE: Using desktop layout for width', window.innerWidth);
+  }
+  
+  // Create clean modern grid structure with responsive class
   const html = `
-    <div class="modern-spreadsheet">
+    <div class="modern-spreadsheet ${layoutClass}">
       <div class="grid-header">
         <div class="corner-cell"></div>
         ${generateColumnHeaders(maxCols)}
@@ -300,10 +346,20 @@ function renderModernGrid(container, ws) {
   
   container.innerHTML = html;
   
+  // Also add the layout class to body for global CSS targeting
+  document.body.className = document.body.className.replace(/(?:^|\s)(?:mobile-layout|small-mobile-layout)(?:\s|$)/g, ' ');
+  if (layoutClass) {
+    document.body.classList.add(layoutClass);
+    console.log('🔥 MOBILE: Applied body class:', layoutClass, '- Body classes now:', document.body.className);
+  } else {
+    console.log('🔥 MOBILE: No mobile class applied - Body classes:', document.body.className);
+  }
+  
   // Add modern event handlers
   setTimeout(() => {
     bindGridHeaderEvents();
     addModernInteractions();
+    addResponsiveHandler();
   }, 10);
 }
 
@@ -457,4 +513,25 @@ function clearPreviousSelection() {
 export function applySelectionHighlight() {
   clearPreviousSelection();
   // Add modern selection highlighting here if needed
+}
+
+// Add responsive handler for window resize
+function addResponsiveHandler() {
+  let resizeTimeout;
+  
+  window.addEventListener('resize', () => {
+    // Debounce resize events
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      // Force re-render on resize to apply new responsive sizes
+      renderSpreadsheetTable(true);
+    }, 250);
+  });
+  
+  // Also handle orientation change on mobile
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      renderSpreadsheetTable(true);
+    }, 300);
+  });
 }

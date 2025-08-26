@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Debug Mobile Grid</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .debug-info {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px;
+      font-size: 12px;
+      z-index: 10000;
+      border-radius: 5px;
+    }
+    .test-grid {
+      margin: 20px;
+      border: 2px solid red;
+      overflow: auto;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div class="debug-info" id="debug-info">Loading...</div>
+  
+  <h1>Debug Mobile Grid Issue</h1>
+  
+  <div class="test-grid">
+    <div class="modern-spreadsheet mobile-layout" id="test-spreadsheet">
+      <div class="grid-header">
+        <div class="corner-cell">C</div>
+        <div class="col-header">A</div>
+        <div class="col-header">B</div>
+        <div class="col-header">C</div>
+        <div class="col-header">D</div>
+        <div class="col-header">E</div>
+      </div>
+      <div class="grid-body">
+        <div class="grid-row">
+          <div class="row-header">1</div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="A1"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="B1"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="C1"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="D1"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="E1"></div>
+        </div>
+        <div class="grid-row">
+          <div class="row-header">2</div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="A2"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="B2"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="C2"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="D2"></div>
+          <div class="modern-cell"><input type="text" class="cell-input" value="E2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <button onclick="testMobile()">Force Mobile Layout</button>
+  <button onclick="testSmallMobile()">Force Small Mobile Layout</button>
+  <button onclick="testDesktop()">Force Desktop Layout</button>
+  <button onclick="debugCellSizes()">Debug Cell Sizes</button>
+  
+  <script>
+    function updateDebugInfo() {
+      const debug = document.getElementById('debug-info');
+      const spreadsheet = document.getElementById('test-spreadsheet');
+      const cell = document.querySelector('.modern-cell');
+      
+      let info = `
+Window: ${window.innerWidth}x${window.innerHeight}
+Body classes: ${document.body.className || 'none'}
+Spreadsheet classes: ${spreadsheet?.className || 'none'}
+      `.trim();
+      
+      if (cell) {
+        const style = window.getComputedStyle(cell);
+        info += `\nCell computed: ${style.width} x ${style.height}`;
+        info += `\nCell min-width: ${style.minWidth}`;
+        info += `\nCell max-width: ${style.maxWidth}`;
+      }
+      
+      debug.innerHTML = info.replace(/\n/g, '<br>');
+    }
+    
+    function testMobile() {
+      document.body.className = 'mobile-layout';
+      document.getElementById('test-spreadsheet').className = 'modern-spreadsheet mobile-layout';
+      updateDebugInfo();
+    }
+    
+    function testSmallMobile() {
+      document.body.className = 'small-mobile-layout';
+      document.getElementById('test-spreadsheet').className = 'modern-spreadsheet small-mobile-layout';
+      updateDebugInfo();
+    }
+    
+    function testDesktop() {
+      document.body.className = '';
+      document.getElementById('test-spreadsheet').className = 'modern-spreadsheet';
+      updateDebugInfo();
+    }
+    
+    function debugCellSizes() {
+      const cells = document.querySelectorAll('.modern-cell');
+      cells.forEach((cell, i) => {
+        const style = window.getComputedStyle(cell);
+        console.log(`Cell ${i}:`, {
+          width: style.width,
+          minWidth: style.minWidth,
+          maxWidth: style.maxWidth,
+          height: style.height
+        });
+      });
+    }
+    
+    // Auto-update debug info
+    setInterval(updateDebugInfo, 1000);
+    updateDebugInfo();
+    
+    // Test on resize
+    window.addEventListener('resize', updateDebugInfo);
+  </script>
+</body>
+</html>
