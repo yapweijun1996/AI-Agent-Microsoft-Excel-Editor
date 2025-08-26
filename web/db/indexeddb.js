@@ -5,7 +5,7 @@ export const db = {
   version: 1,
   db: null,
 
-  async init() {
+  init() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.name, this.version);
 
