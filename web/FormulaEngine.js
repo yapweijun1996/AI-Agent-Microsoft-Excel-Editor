@@ -147,7 +147,7 @@ class FormulaEngine {
       try {
         const result = this.execute('=' + cell.f, this.data, sheetName, cellCoord.label);
         if (result && result.error) {
-          return { error: result.error, details: `Error in cell ${cellCoord.label}: ${result.details}` };
+          return result;
         }
         return result;
       } catch (error) {
