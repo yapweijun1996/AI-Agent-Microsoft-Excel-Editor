@@ -38,13 +38,7 @@ export function updateCell(addr, value) {
   expandRefForCell(ws, addr);
   persistSnapshot();
   
-  // Use efficient single-cell update instead of full re-render when possible
-  try {
-    updateSingleCell(addr, value.startsWith('=') ? value : value);
-  } catch (e) {
-    // Fall back to full render if single-cell update fails
-    renderSpreadsheetTable();
-  }
+  renderSpreadsheetTable();
 }
 
 // Enhanced keyboard navigation

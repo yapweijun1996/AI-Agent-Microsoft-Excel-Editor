@@ -21,30 +21,42 @@ let renderState = {
   firstRow: 0,
   firstCol: 0,
   isScrolling: false,
+  isRenderScheduled: false,
   initialized: false,
   cellCache: new Map(), // Cache for cell DOM elements
   lastUpdateTimestamp: 0
 };
 
 export function renderSpreadsheetTable(forceFullRender = false) {
-  const container = document.getElementById('spreadsheet');
-  const ws = getWorksheet();
-  
-  if (!ws) {
-    container.innerHTML = '<div class="flex items-center justify-center h-64 text-gray-500">No worksheet available</div>';
-    renderState.initialized = false;
+  const now = Date.now();
+  if (renderState.isRenderScheduled || (now - renderState.lastUpdateTimestamp < 16 && !forceFullRender)) {
     return;
   }
+
+  renderState.isRenderScheduled = true;
   
-  // Use incremental rendering if grid is already initialized
-  if (renderState.initialized && !forceFullRender) {
-    updateExistingGrid(container, ws);
-  } else {
-    renderModernGrid(container, ws);
-    renderState.initialized = true;
-  }
-  
-  renderState.lastUpdateTimestamp = Date.now();
+  requestAnimationFrame(() => {
+    const container = document.getElementById('spreadsheet');
+    const ws = getWorksheet();
+    
+    if (!ws) {
+      container.innerHTML = '<div class="flex items-center justify-center h-64 text-gray-500">No worksheet available</div>';
+      renderState.initialized = false;
+      renderState.isRenderScheduled = false;
+      return;
+    }
+    
+    // Use incremental rendering if grid is already initialized
+    if (renderState.initialized && !forceFullRender) {
+      updateExistingGrid(container, ws);
+    } else {
+      renderModernGrid(container, ws);
+      renderState.initialized = true;
+    }
+    
+    renderState.lastUpdateTimestamp = Date.now();
+    renderState.isRenderScheduled = false;
+  });
 }
 
 /**
