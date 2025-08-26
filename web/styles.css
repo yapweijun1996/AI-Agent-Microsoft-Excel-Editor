@@ -724,9 +724,8 @@ td[data-cell]:hover {
 
   /* Main container mobile layout */
   .main-container {
-    height: auto;
-    min-height: calc(100vh - 3rem);
     flex-direction: column;
+    height: calc(100vh - 3rem); /* Full viewport height minus header */
   }
 
   #divider {
@@ -735,10 +734,9 @@ td[data-cell]:hover {
 
   /* Excel panel mobile */
   #excel-panel {
-    flex: 1;
-    min-width: 0;
-    height: 60vh;
-    min-height: 400px;
+    flex: 1 1 auto; /* Allow panel to grow and shrink */
+    min-height: 0; /* Prevent flexbox overflow */
+    height: 65vh;
   }
 
   /* Sheet tabs mobile */
@@ -755,12 +753,11 @@ td[data-cell]:hover {
 
   /* Chat panel mobile */
   #chat-panel {
-    width: 100% !important;
-    min-width: 0 !important;
+    flex: 1 1 auto; /* Allow panel to grow and shrink */
+    min-height: 0; /* Prevent flexbox overflow */
+    height: 35vh;
     border-left: none !important;
     border-top: 1px solid #e5e7eb; /* gray-200 */
-    height: 40vh;
-    min-height: 300px;
   }
 
   /* Spreadsheet mobile */
