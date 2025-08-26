@@ -207,7 +207,7 @@ function handleCellKeypress(event) {
   }
 };
 
-function onCellFocus(addr, input) {
+export function onCellFocus(addr, input) {
   try {
     const cell = XLSX.utils.decode_cell(addr);
     AppState.activeCell = cell;
