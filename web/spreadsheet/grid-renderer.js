@@ -52,10 +52,19 @@ let lastScrollTop = 0;
 let lastScrollLeft = 0;
 let renderTimeout = null;
 
-// Grid dimensions - optimized for unlimited scrolling
+// Grid dimensions - optimized for unlimited scrolling with responsive width
 const GRID_CONFIG = {
   defaultRowHeight: 32,
-  defaultColWidth: 100,
+  getOptimalColWidth: () => {
+    // Calculate optimal column width based on 75vw container
+    const viewportWidth = window.innerWidth;
+    const containerWidth = viewportWidth * 0.75; // 75vw
+    const headerWidth = 48; // Row header width
+    const availableWidth = containerWidth - headerWidth;
+    const optimalCols = 20; // Target number of visible columns
+    return Math.max(80, Math.floor(availableWidth / optimalCols)); // Min 80px per column
+  },
+  defaultColWidth: 120, // Fallback if calculation fails
   minRowsBuffer: 8,    // Increased buffer for smoother scrolling
   minColsBuffer: 6,    // Increased buffer for smoother scrolling
   maxRows: 1048576,    // Excel limit
@@ -107,8 +116,9 @@ function initializeScrollHandler(container) {
       const scrollDeltaY = Math.abs(currentScrollTop - lastScrollTop);
       const scrollDeltaX = Math.abs(currentScrollLeft - lastScrollLeft);
       
+      const currentOptimalColWidth = GRID_CONFIG.getOptimalColWidth();
       if (scrollDeltaY > GRID_CONFIG.defaultRowHeight * GRID_CONFIG.scrollThreshold ||
-          scrollDeltaX > GRID_CONFIG.defaultColWidth * GRID_CONFIG.scrollThreshold) {
+          scrollDeltaX > currentOptimalColWidth * GRID_CONFIG.scrollThreshold) {
         
         // Prevent excessive rendering
         if (!virtualState.isRendering) {
@@ -160,30 +170,34 @@ function renderVisibleGrid(container, ws) {
   const containerHeight = parent.clientHeight;
   const containerWidth = parent.clientWidth;
   
+  // Calculate optimal column width for 75vw container
+  const optimalColWidth = GRID_CONFIG.getOptimalColWidth();
+  
   // Calculate visible range to fill the entire viewport
   const visibleRows = Math.ceil(containerHeight / GRID_CONFIG.defaultRowHeight) + 10; // Extra rows for full coverage
-  const visibleCols = Math.ceil(containerWidth / GRID_CONFIG.defaultColWidth) + 5;   // Extra cols for full coverage
+  const visibleCols = Math.ceil(containerWidth / optimalColWidth) + 5;   // Extra cols for full coverage based on optimal width
   
   const firstRow = Math.max(0, Math.floor(scrollTop / GRID_CONFIG.defaultRowHeight) - GRID_CONFIG.minRowsBuffer);
   const lastRow = Math.min(fullRange.e.r, Math.max(firstRow + visibleRows, firstRow + 50)); // At least 50 rows visible
   
-  const firstCol = Math.max(0, Math.floor(parent.scrollLeft / GRID_CONFIG.defaultColWidth) - GRID_CONFIG.minColsBuffer);
+  const firstCol = Math.max(0, Math.floor(parent.scrollLeft / optimalColWidth) - GRID_CONFIG.minColsBuffer);
   const lastCol = Math.min(fullRange.e.c, Math.max(firstCol + visibleCols, firstCol + 20)); // At least 20 columns visible
   
   // Calculate total dimensions for full dataset
   const totalHeight = (fullRange.e.r + 1) * GRID_CONFIG.defaultRowHeight;
-  const totalWidth = (fullRange.e.c + 1) * GRID_CONFIG.defaultColWidth;
+  const totalWidth = (fullRange.e.c + 1) * optimalColWidth;
   
   // Log dataset info and rendering details
   console.info(`Rendering grid: ${fullRange.e.r + 1} rows × ${fullRange.e.c + 1} columns (${totalCells.toLocaleString()} total cells)`);
   console.info(`Visible range: rows ${firstRow}-${lastRow} (${lastRow - firstRow + 1} rows), columns ${firstCol}-${lastCol} (${lastCol - firstCol + 1} cols)`);
   console.info(`Container size: ${containerWidth}×${containerHeight}px, Virtual size: ${totalWidth}×${totalHeight}px`);
+  console.info(`Optimal column width: ${optimalColWidth}px (for 75vw container)`);
   
   let html = `<div class="virtual-scroll-area" style="height: ${totalHeight}px; width: ${totalWidth}px; position: relative; overflow: visible;">`;
   
   // Calculate table position
   const tableTop = firstRow * GRID_CONFIG.defaultRowHeight;
-  const tableLeft = firstCol * GRID_CONFIG.defaultColWidth;
+  const tableLeft = firstCol * optimalColWidth;
   
   html += `<table class="ai-grid border-collapse border border-gray-300 bg-white" style="position: absolute; top: ${tableTop}px; left: ${tableLeft}px; transform: translate3d(0, 0, 0);">`;
   
@@ -193,8 +207,7 @@ function renderVisibleGrid(container, ws) {
   
   for (let c = firstCol; c <= lastCol; c++) {
     const colLetter = XLSX.utils.encode_col(c);
-    const colWidth = getColumnWidth(c);
-    html += `<th class="col-header cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500" style="min-width: ${colWidth}px; width: ${colWidth}px;" data-col="${colLetter}" data-col-index="${c}">${colLetter}</th>`;
+    html += `<th class="col-header cursor-pointer select-none p-2 border border-gray-300 bg-gray-100 text-center text-xs font-medium text-gray-500" style="min-width: ${optimalColWidth}px; width: ${optimalColWidth}px;" data-col="${colLetter}" data-col-index="${c}">${colLetter}</th>`;
   }
   html += '</tr></thead>';
   
@@ -253,7 +266,6 @@ function renderVisibleGrid(container, ws) {
       }
       
       const cellStyle = buildCellStyle(cellData.styles);
-      const colWidth = getColumnWidth(c);
       
       // Track rendered cells
       virtualState.renderedCells.add(addr);
@@ -261,7 +273,7 @@ function renderVisibleGrid(container, ws) {
       html += `
         <td class="border border-gray-300 hover:bg-blue-50 focus-within:bg-blue-50 relative" 
             data-cell="${addr}" data-col-index="${c}" 
-            style="min-width: ${colWidth}px; width: ${colWidth}px; height: ${rowHeight}px;">
+            style="min-width: ${optimalColWidth}px; width: ${optimalColWidth}px; height: ${rowHeight}px;">
           ${cellData.hasComment ? '<div class="absolute top-0 right-0 w-0 h-0 border-solid border-t-4 border-l-4 border-t-red-500 border-l-transparent"></div>' : ''}
           <input type="text" 
                  value="${escapeHtml(cellData.value)}" 
