@@ -11,6 +11,7 @@ import { renderSheetTabs } from './spreadsheet/sheet-manager.js';
 import { renderSpreadsheetTable } from './spreadsheet/grid-renderer.js';
 import { loadTasks, drawTasks } from './tasks/task-manager.js';
 import { bindUI } from './ui/bindings.js';
+import './spreadsheet/operations.js'; // Import for applyEditsOrDryRun global function
 
 // Enhanced initialization with loading state
 function showLoadingOverlay() {
