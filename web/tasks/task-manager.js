@@ -1,12 +1,12 @@
 import { AppState } from '../core/state.js';
 import { db } from '../db/indexeddb.js';
-import { escapeHtml, extractFirstJson, getSampleDataFromSheet } from '../utils/index.js';
+import { escapeHtml, extractFirstJson, getSampleDataFromSheet, log } from '../utils/index.js';
 import { Modal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
 import { getWorksheet } from '../spreadsheet/workbook-manager.js';
 import { runExecutor, runValidator, fetchOpenAI, fetchGemini } from '../services/ai-agents.js';
 import { pickProvider, getSelectedModel } from '../services/api-keys.js';
-/* global applyEditsOrDryRun, log */
+/* global applyEditsOrDryRun */
 
 export async function loadTasks() {
   try {
