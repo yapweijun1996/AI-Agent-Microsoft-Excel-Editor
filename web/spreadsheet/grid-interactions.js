@@ -8,6 +8,10 @@ import { applyEditsOrDryRun } from './operations.js';
 import { registerGlobal, createNamespace } from '../core/global-bindings.js';
 /* global XLSX */
 
+// Constants for grid navigation expansion
+const ROW_EXPANSION_BUFFER = 50; // Extra rows to allow beyond current range
+const COL_EXPANSION_BUFFER = 25; // Extra columns to allow beyond current range
+
 // Selection state for range selection
 let selectionState = {
   isSelecting: false,
@@ -55,6 +59,58 @@ function moveToCell(row, col) {
 
 // Cell & Grid Logic
 
+export function handleCellKeydown(event, addr) {
+  const cell = XLSX.utils.decode_cell(addr);
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  
+  switch (event.key) {
+    case 'ArrowUp':
+      event.preventDefault();
+      moveToCell(Math.max(0, cell.r - 1), cell.c);
+      break;
+    case 'ArrowDown':
+      event.preventDefault();
+      moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
+      break;
+    case 'ArrowLeft':
+      event.preventDefault();
+      moveToCell(cell.r, Math.max(0, cell.c - 1));
+      break;
+    case 'ArrowRight':
+      event.preventDefault();
+      moveToCell(cell.r, Math.min(range.e.c, cell.c + 1));
+      break;
+    case 'Enter':
+      event.preventDefault();
+      event.target.blur();
+      moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
+      break;
+    case 'Tab':
+      event.preventDefault();
+      event.target.blur();
+      if (event.shiftKey) {
+        moveToCell(cell.r, Math.max(0, cell.c - 1));
+      } else {
+        moveToCell(cell.r, Math.min(range.e.c, cell.c + 1));
+      }
+      break;
+    case 'Delete':
+      event.preventDefault();
+      updateCell(addr, '');
+      break;
+    case 'F2':
+      event.preventDefault();
+      event.target.readOnly = false;
+      event.target.focus();
+      break;
+    case 'Escape':
+      event.preventDefault();
+      event.target.blur();
+      break;
+  }
+}
+
 export function updateCell(addr, value) {
   const ws = getWorksheet();
   const oldValue = ws[addr] ? (ws[addr].f || ws[addr].v) : '';
@@ -79,81 +135,11 @@ export function updateCell(addr, value) {
   renderSpreadsheetTable();
 }
 
-// Enhanced keyboard navigation
-export function handleCellKeydown(event, addr) {
-  const cell = XLSX.utils.decode_cell(addr);
-  const ws = getWorksheet();
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-  
-  switch (event.key) {
-    case 'Enter':
-      event.preventDefault();
-      event.target.blur();
-      // Move to next row
-      navigateToCell(cell.r + 1, cell.c, range);
-      break;
-    
-    case 'Tab':
-      event.preventDefault();
-      // Move to next column (or previous if shift)
-      const nextCol = event.shiftKey ? cell.c - 1 : cell.c + 1;
-      navigateToCell(cell.r, nextCol, range);
-      break;
-    
-    case 'ArrowUp':
-      if (!event.target.selectionStart && !event.target.selectionEnd) {
-        event.preventDefault();
-        navigateToCell(cell.r - 1, cell.c, range, event.shiftKey);
-      }
-      break;
-    
-    case 'ArrowDown':
-      if (!event.target.selectionStart && !event.target.selectionEnd) {
-        event.preventDefault();
-        navigateToCell(cell.r + 1, cell.c, range, event.shiftKey);
-      }
-      break;
-    
-    case 'ArrowLeft':
-      if (!event.target.selectionStart && !event.target.selectionEnd) {
-        event.preventDefault();
-        navigateToCell(cell.r, cell.c - 1, range, event.shiftKey);
-      }
-      break;
-    
-    case 'ArrowRight':
-      if (!event.target.selectionStart && !event.target.selectionEnd) {
-        event.preventDefault();
-        navigateToCell(cell.r, cell.c + 1, range, event.shiftKey);
-      }
-      break;
-    
-    case 'Escape':
-      event.preventDefault();
-      event.target.blur();
-      clearSelection();
-      break;
-    
-    case 'Delete':
-    case 'Backspace':
-      if (!event.target.value) {
-        deleteSelectedCells();
-      }
-      break;
-      
-    default:
-      // Handle Ctrl/Cmd shortcuts
-      if (event.ctrlKey || event.metaKey) {
-        handleKeyboardShortcut(event, addr);
-      }
-      break;
-  }
-};
 
 function navigateToCell(row, col, range, extendSelection = false) {
-  // Bound check
-  row = Math.max(0, Math.min(row, range.e.r + 50)); // Allow expanding beyond current range
-  col = Math.max(0, Math.min(col, range.e.c + 25));
+  // Bound check - allow expanding beyond current range with buffer
+  row = Math.max(0, Math.min(row, range.e.r + ROW_EXPANSION_BUFFER));
+  col = Math.max(0, Math.min(col, range.e.c + COL_EXPANSION_BUFFER));
   
   const newAddr = XLSX.utils.encode_cell({ r: row, c: col });
   const cellElement = document.querySelector(`input[onfocus*="${newAddr}"]`);
@@ -205,42 +191,6 @@ function handleCellKeypress(event) {
     event.preventDefault();
     event.target.blur();
   }
-};
-
-export function onCellFocus(addr) {
-  try {
-    const cell = XLSX.utils.decode_cell(addr);
-    AppState.activeCell = cell;
-
-    const refEl = document.getElementById('cell-reference');
-    if (refEl) refEl.textContent = addr;
-
-    const formulaBar = document.getElementById('formula-bar');
-    if (formulaBar) {
-      const ws = getWorksheet();
-      const c = ws[addr];
-      if (c) {
-        if (c.f) {
-          formulaBar.value = c.f;
-        } else if (c.v !== undefined) {
-          formulaBar.value = String(c.v);
-        } else {
-          formulaBar.value = '';
-        }
-      } else {
-        formulaBar.value = '';
-      }
-    }
-    
-    // Update format button states when cell is focused
-    updateFormatButtonStates();
-  } catch (e) { 
-    console.warn('Error in onCellFocus:', e.message);
-  }
-};
-
-export function onCellBlur(addr, input) {
-  updateCell(addr, input.value);
 };
 
 // Header and context menu interactions
@@ -846,14 +796,12 @@ function initializeGridGlobals() {
           break;
         case 'Enter':
           event.preventDefault();
-          // Save current cell value before moving
-          saveCurrentCellValue(addr, event.target, ws);
+          event.target.blur(); // This will trigger onCellBlur which saves the value
           moveToCell(Math.min(range.e.r, cell.r + 1), cell.c);
           break;
         case 'Tab':
           event.preventDefault();
-          // Save current cell value before moving
-          saveCurrentCellValue(addr, event.target, ws);
+          event.target.blur(); // This will trigger onCellBlur which saves the value
           if (event.shiftKey) {
             moveToCell(cell.r, Math.max(0, cell.c - 1));
           } else {
