@@ -434,18 +434,18 @@ async function insertRowAtSpecific(rowNumber) {
 }
 
 async function deleteRowAtSpecific(rowNumber) {
-  await applyEdits([{ op: 'deleteRow', sheet: AppState.activeSheet, row: rowNumber }]);
+  await applyEditsOrDryRun({ edits: [{ op: 'deleteRow', sheet: AppState.activeSheet, row: rowNumber }] });
   showToast(`Deleted row ${rowNumber}`, 'success');
 }
 
 async function insertColumnAtSpecificIndex(colIndex) {
-  await applyEdits([{ op: 'insertColumn', sheet: AppState.activeSheet, index: colIndex }]);
+  await applyEditsOrDryRun({ edits: [{ op: 'insertColumn', sheet: AppState.activeSheet, index: colIndex }] });
   const colLetter = XLSX.utils.encode_col(colIndex);
   showToast(`Inserted column ${colLetter}`, 'success');
 }
 
 async function deleteColumnAtSpecificIndex(colIndex) {
-  await applyEdits([{ op: 'deleteColumn', sheet: AppState.activeSheet, index: colIndex }]);
+  await applyEditsOrDryRun({ edits: [{ op: 'deleteColumn', sheet: AppState.activeSheet, index: colIndex }] });
   const colLetter = XLSX.utils.encode_col(colIndex);
   showToast(`Deleted column ${colLetter}`, 'success');
 }
