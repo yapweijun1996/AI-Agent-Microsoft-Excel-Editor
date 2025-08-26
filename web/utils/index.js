@@ -31,7 +31,7 @@ export function escapeHtml(str) {
     .replace(/</g, '<')
     .replace(/>/g, '>')
     .replace(/"/g, '"')
-    .replace(/'/g, '&amp;#39;');
+    .replace(/'/g, '&#039;');
 }
 
 export function uuid() { return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36); }

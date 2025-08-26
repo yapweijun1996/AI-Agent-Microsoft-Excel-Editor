@@ -68,7 +68,7 @@ export async function onSend() {
 
       if (AppState.autoExecute) {
         const orchestration = await runOrchestrator(tasks);
-        executeTasks(orchestration.executionPlan.map(p => p.taskId));
+        executeTasks(orchestration.executionPlan.map(p => AppState.tasks.find(t => t.id === p.taskId)));
       }
     } else {
       // Fallback for simple commands that don't generate tasks

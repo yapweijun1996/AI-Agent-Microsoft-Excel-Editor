@@ -316,9 +316,8 @@ window.executeTask = async function (id) {
   }
 };
 
-export async function executeTasks(taskIds) {
-  const tasks = taskIds.map(id => AppState.tasks.find(t => t.id === id)).filter(Boolean);
-  if (tasks.length === 0) return;
+export async function executeTasks(tasks) {
+  if (!tasks || tasks.length === 0) return;
 
   showToast(`Orchestrating execution of ${tasks.length} tasks...`, 'info');
 
@@ -356,7 +355,7 @@ export async function autoExecuteTasks() {
   const pendingTasks = AppState.tasks.filter(t => t.status === 'pending');
   if (pendingTasks.length > 0) {
     showToast(`Auto-executing ${pendingTasks.length} task(s)...`, 'info');
-    await executeTasks(pendingTasks.map(t => t.id));
+    await executeTasks(pendingTasks);
   }
 }
 
