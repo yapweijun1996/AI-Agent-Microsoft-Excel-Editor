@@ -17,7 +17,7 @@ export function expandRefForCell(ws, addr) {
   ws['!ref'] = XLSX.utils.encode_range(range);
 }
 
-window.updateCell = function (addr, value) {
+export function updateCell(addr, value) {
   const ws = getWorksheet();
   const oldValue = ws[addr] ? (ws[addr].f || ws[addr].v) : '';
 
@@ -38,7 +38,8 @@ window.updateCell = function (addr, value) {
   expandRefForCell(ws, addr);
   persistSnapshot();
   renderSpreadsheetTable();
-};
+}
+window.updateCell = updateCell;
 
 window.handleCellKeypress = function (event) {
   if (event.key === 'Enter') {
