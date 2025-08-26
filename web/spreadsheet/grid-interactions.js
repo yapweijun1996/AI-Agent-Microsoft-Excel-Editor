@@ -6,6 +6,14 @@ import { showToast } from '../ui/toast.js';
 import { parseCellValue } from '../utils/index.js';
 /* global XLSX */
 
+// Selection state for range selection
+let selectionState = {
+  isSelecting: false,
+  startCell: null,
+  endCell: null,
+  selectedRange: null
+};
+
 // Cell & Grid Logic
 export function expandRefForCell(ws, addr) {
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
@@ -41,6 +49,127 @@ export function updateCell(addr, value) {
 }
 window.updateCell = updateCell;
 
+// Enhanced keyboard navigation
+window.handleCellKeydown = function (event, addr) {
+  const cell = XLSX.utils.decode_cell(addr);
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  
+  switch (event.key) {
+    case 'Enter':
+      event.preventDefault();
+      event.target.blur();
+      // Move to next row
+      navigateToCell(cell.r + 1, cell.c, range);
+      break;
+    
+    case 'Tab':
+      event.preventDefault();
+      // Move to next column (or previous if shift)
+      const nextCol = event.shiftKey ? cell.c - 1 : cell.c + 1;
+      navigateToCell(cell.r, nextCol, range);
+      break;
+    
+    case 'ArrowUp':
+      if (!event.target.selectionStart && !event.target.selectionEnd) {
+        event.preventDefault();
+        navigateToCell(cell.r - 1, cell.c, range, event.shiftKey);
+      }
+      break;
+    
+    case 'ArrowDown':
+      if (!event.target.selectionStart && !event.target.selectionEnd) {
+        event.preventDefault();
+        navigateToCell(cell.r + 1, cell.c, range, event.shiftKey);
+      }
+      break;
+    
+    case 'ArrowLeft':
+      if (!event.target.selectionStart && !event.target.selectionEnd) {
+        event.preventDefault();
+        navigateToCell(cell.r, cell.c - 1, range, event.shiftKey);
+      }
+      break;
+    
+    case 'ArrowRight':
+      if (!event.target.selectionStart && !event.target.selectionEnd) {
+        event.preventDefault();
+        navigateToCell(cell.r, cell.c + 1, range, event.shiftKey);
+      }
+      break;
+    
+    case 'Escape':
+      event.preventDefault();
+      event.target.blur();
+      clearSelection();
+      break;
+    
+    case 'Delete':
+    case 'Backspace':
+      if (!event.target.value) {
+        deleteSelectedCells();
+      }
+      break;
+      
+    default:
+      // Handle Ctrl/Cmd shortcuts
+      if (event.ctrlKey || event.metaKey) {
+        handleKeyboardShortcut(event, addr);
+      }
+      break;
+  }
+};
+
+function navigateToCell(row, col, range, extendSelection = false) {
+  // Bound check
+  row = Math.max(0, Math.min(row, range.e.r + 50)); // Allow expanding beyond current range
+  col = Math.max(0, Math.min(col, range.e.c + 25));
+  
+  const newAddr = XLSX.utils.encode_cell({ r: row, c: col });
+  const cellElement = document.querySelector(`input[onfocus*="${newAddr}"]`);
+  
+  if (cellElement) {
+    if (extendSelection) {
+      // Extend selection range
+      extendSelectionRange(row, col);
+    } else {
+      // Clear selection and focus new cell
+      clearSelection();
+      cellElement.focus();
+      cellElement.select();
+    }
+  }
+}
+
+function handleKeyboardShortcut(event, addr) {
+  switch (event.key.toLowerCase()) {
+    case 'c':
+      event.preventDefault();
+      copyCell(addr);
+      showToast('Cell copied', 'success', 1000);
+      break;
+    case 'v':
+      event.preventDefault();
+      pasteCell(addr);
+      showToast('Cell pasted', 'success', 1000);
+      break;
+    case 'x':
+      event.preventDefault();
+      cutCell(addr);
+      showToast('Cell cut', 'success', 1000);
+      break;
+    case 'z':
+      event.preventDefault();
+      // Undo functionality would be implemented here
+      break;
+    case 'a':
+      event.preventDefault();
+      selectAllCells();
+      break;
+  }
+}
+
+// Legacy support
 window.handleCellKeypress = function (event) {
   if (event.key === 'Enter') {
     event.preventDefault();
@@ -136,17 +265,59 @@ export function bindGridHeaderEvents() {
     });
   });
 
-  // Cell context menu
+  // Enhanced cell interactions with drag selection
   container.querySelectorAll('td[data-cell]').forEach(td => {
+    const cellRef = td.dataset.cell;
+    const cellCoords = XLSX.utils.decode_cell(cellRef);
+    
+    // Mouse down for selection start
+    td.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // Only left click
+      
+      if (e.ctrlKey || e.metaKey) {
+        // Multi-select mode
+        toggleCellSelection(cellRef);
+      } else if (e.shiftKey && selectionState.selectedRange) {
+        // Extend selection
+        extendSelectionTo(cellCoords);
+      } else {
+        // Start new selection
+        startSelection(cellCoords);
+      }
+    });
+    
+    // Mouse enter for drag selection
+    td.addEventListener('mouseenter', (e) => {
+      if (selectionState.isSelecting && e.buttons === 1) {
+        extendSelectionTo(cellCoords);
+      }
+    });
+    
+    // Mouse up to end selection
+    td.addEventListener('mouseup', (e) => {
+      if (e.button === 0) {
+        endSelection();
+      }
+    });
+    
+    // Context menu
     td.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const cellRef = td.dataset.cell;
       showContextMenu(e.clientX, e.clientY, [
         { label: 'Cut', action: () => cutCell(cellRef) },
         { label: 'Copy', action: () => copyCell(cellRef) },
-        { label: 'Paste', action: () => pasteCell(cellRef) }
+        { label: 'Paste', action: () => pasteCell(cellRef) },
+        { label: 'Clear Contents', action: () => clearCell(cellRef) },
+        { label: 'Insert Comment', action: () => insertComment(cellRef) }
       ]);
     });
+  });
+  
+  // Global mouse up to handle selection end
+  document.addEventListener('mouseup', () => {
+    if (selectionState.isSelecting) {
+      endSelection();
+    }
   });
 }
 
@@ -249,33 +420,223 @@ export async function deleteSelectedColumn() {
   }
 }
 
-// Cell clipboard functions
+// Enhanced selection functions
+function startSelection(cellCoords) {
+  selectionState.isSelecting = true;
+  selectionState.startCell = cellCoords;
+  selectionState.endCell = cellCoords;
+  updateSelectionRange();
+}
+
+function extendSelectionTo(cellCoords) {
+  if (!selectionState.startCell) {
+    startSelection(cellCoords);
+    return;
+  }
+  selectionState.endCell = cellCoords;
+  updateSelectionRange();
+}
+
+function extendSelectionRange(row, col) {
+  if (!selectionState.selectedRange) {
+    startSelection({ r: row, c: col });
+    return;
+  }
+  extendSelectionTo({ r: row, c: col });
+}
+
+function endSelection() {
+  selectionState.isSelecting = false;
+}
+
+function updateSelectionRange() {
+  if (!selectionState.startCell || !selectionState.endCell) return;
+  
+  const startR = Math.min(selectionState.startCell.r, selectionState.endCell.r);
+  const endR = Math.max(selectionState.startCell.r, selectionState.endCell.r);
+  const startC = Math.min(selectionState.startCell.c, selectionState.endCell.c);
+  const endC = Math.max(selectionState.startCell.c, selectionState.endCell.c);
+  
+  selectionState.selectedRange = {
+    s: { r: startR, c: startC },
+    e: { r: endR, c: endC }
+  };
+  
+  // Update AppState for compatibility
+  AppState.activeCell = selectionState.startCell;
+  
+  // Apply visual selection
+  applyRangeSelection();
+}
+
+function applyRangeSelection() {
+  // Clear previous selection
+  clearPreviousSelection();
+  
+  if (!selectionState.selectedRange) return;
+  
+  const container = document.getElementById('spreadsheet');
+  if (!container) return;
+  
+  // Highlight selected range
+  for (let r = selectionState.selectedRange.s.r; r <= selectionState.selectedRange.e.r; r++) {
+    for (let c = selectionState.selectedRange.s.c; c <= selectionState.selectedRange.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cellElement = container.querySelector(`td[data-cell="${addr}"]`);
+      if (cellElement) {
+        cellElement.classList.add('selected-range', 'bg-blue-100', 'ring-1', 'ring-blue-300');
+      }
+    }
+  }
+}
+
+function clearSelection() {
+  selectionState.isSelecting = false;
+  selectionState.startCell = null;
+  selectionState.endCell = null;
+  selectionState.selectedRange = null;
+  clearPreviousSelection();
+}
+
+function clearPreviousSelection() {
+  const container = document.getElementById('spreadsheet');
+  if (!container) return;
+  
+  container.querySelectorAll('.selected-range, .ai-selected').forEach(el => {
+    el.classList.remove('selected-range', 'ai-selected', 'bg-blue-100', 'ring-1', 'ring-blue-300');
+  });
+}
+
+function toggleCellSelection(cellRef) {
+  const container = document.getElementById('spreadsheet');
+  const cellElement = container.querySelector(`td[data-cell="${cellRef}"]`);
+  
+  if (cellElement) {
+    cellElement.classList.toggle('multi-selected', 'bg-yellow-100', 'ring-1', 'ring-yellow-300');
+  }
+}
+
+function selectAllCells() {
+  const ws = getWorksheet();
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  
+  selectionState.startCell = { r: range.s.r, c: range.s.c };
+  selectionState.endCell = { r: range.e.r, c: range.e.c };
+  updateSelectionRange();
+  
+  showToast('All cells selected', 'info', 1500);
+}
+
+function deleteSelectedCells() {
+  if (!selectionState.selectedRange) return;
+  
+  const ws = getWorksheet();
+  let deletedCount = 0;
+  
+  for (let r = selectionState.selectedRange.s.r; r <= selectionState.selectedRange.e.r; r++) {
+    for (let c = selectionState.selectedRange.s.c; c <= selectionState.selectedRange.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (ws[addr]) {
+        delete ws[addr];
+        deletedCount++;
+      }
+    }
+  }
+  
+  if (deletedCount > 0) {
+    persistSnapshot();
+    renderSpreadsheetTable();
+    showToast(`Cleared ${deletedCount} cells`, 'success');
+  }
+}
+
+// Enhanced clipboard functions
 function cutCell(cellRef) {
   copyCell(cellRef);
-  const ws = getWorksheet();
-  delete ws[cellRef];
-  renderSpreadsheetTable();
-  persistSnapshot();
+  clearCell(cellRef);
 }
 
 function copyCell(cellRef) {
   const ws = getWorksheet();
-  AppState.clipboard = {
-    v: ws[cellRef]?.v,
-    f: ws[cellRef]?.f,
-    t: ws[cellRef]?.t,
-    s: ws[cellRef]?.s
-  };
+  if (selectionState.selectedRange) {
+    // Copy range
+    AppState.clipboard = {
+      type: 'range',
+      range: selectionState.selectedRange,
+      data: {}
+    };
+    
+    for (let r = selectionState.selectedRange.s.r; r <= selectionState.selectedRange.e.r; r++) {
+      for (let c = selectionState.selectedRange.s.c; c <= selectionState.selectedRange.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (ws[addr]) {
+          AppState.clipboard.data[addr] = { ...ws[addr] };
+        }
+      }
+    }
+  } else {
+    // Copy single cell
+    AppState.clipboard = {
+      type: 'cell',
+      cellRef,
+      data: ws[cellRef] ? { ...ws[cellRef] } : null
+    };
+  }
 }
 
 function pasteCell(cellRef) {
   if (!AppState.clipboard) {
+    showToast('Nothing to paste', 'warning');
     return;
   }
+  
   const ws = getWorksheet();
-  ws[cellRef] = { ...AppState.clipboard };
-  renderSpreadsheetTable();
+  const targetCell = XLSX.utils.decode_cell(cellRef);
+  
+  if (AppState.clipboard.type === 'range') {
+    // Paste range
+    const sourceRange = AppState.clipboard.range;
+    const offsetR = targetCell.r - sourceRange.s.r;
+    const offsetC = targetCell.c - sourceRange.s.c;
+    
+    Object.entries(AppState.clipboard.data).forEach(([sourceAddr, cellData]) => {
+      const sourceCell = XLSX.utils.decode_cell(sourceAddr);
+      const newAddr = XLSX.utils.encode_cell({
+        r: sourceCell.r + offsetR,
+        c: sourceCell.c + offsetC
+      });
+      ws[newAddr] = { ...cellData };
+      expandRefForCell(ws, newAddr);
+    });
+  } else {
+    // Paste single cell
+    if (AppState.clipboard.data) {
+      ws[cellRef] = { ...AppState.clipboard.data };
+      expandRefForCell(ws, cellRef);
+    }
+  }
+  
   persistSnapshot();
+  renderSpreadsheetTable();
+}
+
+function clearCell(cellRef) {
+  const ws = getWorksheet();
+  delete ws[cellRef];
+  persistSnapshot();
+  renderSpreadsheetTable();
+}
+
+function insertComment(cellRef) {
+  const comment = prompt('Enter comment:');
+  if (comment) {
+    const ws = getWorksheet();
+    if (!ws[cellRef]) ws[cellRef] = {};
+    ws[cellRef].c = [{ t: comment, a: 'User', T: new Date().toISOString() }];
+    persistSnapshot();
+    renderSpreadsheetTable();
+    showToast('Comment added', 'success');
+  }
 }
 
 // Formula insertion helper
@@ -321,13 +682,38 @@ export function updateFormatButtonStates() {
 
 // Cell formatting helper  
 export function applyFormat(formatType, value) {
-  if (!AppState.activeCell) {
+  const ws = getWorksheet();
+  let formattedCount = 0;
+  
+  // Apply to selected range or active cell
+  if (selectionState.selectedRange) {
+    for (let r = selectionState.selectedRange.s.r; r <= selectionState.selectedRange.e.r; r++) {
+      for (let c = selectionState.selectedRange.s.c; c <= selectionState.selectedRange.e.c; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (applyFormatToCell(ws, cellRef, formatType, value)) {
+          formattedCount++;
+        }
+      }
+    }
+  } else if (AppState.activeCell) {
+    const cellRef = XLSX.utils.encode_cell(AppState.activeCell);
+    if (applyFormatToCell(ws, cellRef, formatType, value)) {
+      formattedCount++;
+    }
+  } else {
     showToast('Please select a cell to format', 'warning');
     return;
   }
+  
+  if (formattedCount > 0) {
+    persistSnapshot();
+    renderSpreadsheetTable();
+    updateFormatButtonStates();
+    showToast(`Applied ${formatType} formatting to ${formattedCount} cell${formattedCount > 1 ? 's' : ''}`, 'success', 1000);
+  }
+}
 
-  const ws = getWorksheet();
-  const cellRef = XLSX.utils.encode_cell(AppState.activeCell);
+function applyFormatToCell(ws, cellRef, formatType, value) {
   const cell = ws[cellRef] || {};
   
   // Initialize style object if it doesn't exist
@@ -348,11 +734,10 @@ export function applyFormat(formatType, value) {
     case 'color':
       cell.s.color = value;
       break;
+    default:
+      return false;
   }
   
   ws[cellRef] = cell;
-  persistSnapshot();
-  renderSpreadsheetTable();
-  updateFormatButtonStates(); // Update button states after applying format
-  showToast(`Applied ${formatType} formatting`, 'success', 1000);
+  return true;
 }
