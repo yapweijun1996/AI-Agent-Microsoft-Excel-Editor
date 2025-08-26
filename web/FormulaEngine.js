@@ -1,7 +1,7 @@
 // ===================================================================
 // FormulaEngine.js - Advanced Formula Parsing and Execution Engine
 // ===================================================================
-/* global formulaParser */
+/* global formulaParser, AppState */
 
 class FormulaEngine {
   constructor(data, activeSheetName = null) {
@@ -45,10 +45,17 @@ class FormulaEngine {
 
   execute(formula, data, activeSheetName = null, cellAddress = null) {
     // Normalize: strip leading '=' for parser or fallback evaluation
+    // Update engine context before cache lookup
+    this.data = data;
+    if (activeSheetName) {
+      this.activeSheetName = activeSheetName;
+    }
+
+    // Normalize: strip leading '=' for parser or fallback evaluation
     const expr = (typeof formula === 'string' && formula.startsWith('=')) ? formula.slice(1) : formula;
 
-    // Create cache key
-    const cacheKey = `${this.cacheVersion}:${activeSheetName || this.activeSheetName}:${expr}`;
+    // Create a robust cache key that includes workbook version and cell context
+    const cacheKey = `${this.cacheVersion}:${activeSheetName || this.activeSheetName}:${cellAddress || ''}:${AppState.wbVersion}:${expr}`;
     
     // Check cache first
     if (this.formulaCache.has(cacheKey)) {
@@ -74,11 +81,6 @@ class FormulaEngine {
       }
       this.setCacheValue(cacheKey, expr);
       return expr;
-    }
-    
-    this.data = data;
-    if (activeSheetName) {
-      this.activeSheetName = activeSheetName;
     }
     
     try {

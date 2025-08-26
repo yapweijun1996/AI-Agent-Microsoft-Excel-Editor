@@ -38,6 +38,7 @@ try {
 export const AppState = {
   wb: null,
   activeSheet: 'Sheet1',
+  wbVersion: 0, // Monotonic version for cache invalidation
   activeCell: { r: 0, c: 0 }, // Excel-like active cell (0-based r,c)
   selectedRows: [], // 1-based row numbers selected via row header
   selectedCols: [], // 0-based column indices selected via column header

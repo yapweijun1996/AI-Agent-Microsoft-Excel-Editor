@@ -105,7 +105,7 @@ function updateExistingGrid(container, ws) {
     // Only update if value changed
     const currentValue = input.value;
     if (currentValue !== String(newValue)) {
-      input.value = escapeHtml(newValue);
+      input.value = newValue;
       
       // Update formula class
       if (hasFormula && !cellElement.classList.contains('has-formula')) {
@@ -189,16 +189,17 @@ function expandGridIfNeeded(container, ws, newMaxRows, newMaxCols) {
         const cellDiv = document.createElement('div');
         cellDiv.className = `modern-cell ${hasFormula ? 'has-formula' : ''}`;
         cellDiv.setAttribute('data-cell', addr);
-        cellDiv.setAttribute('data-row', r);
+        cellDiv.setAttribute('data-row', r + 1);
+        cellDiv.setAttribute('data-row-index', r);
         cellDiv.setAttribute('data-col', c);
         
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = escapeHtml(value);
+        input.value = value;
         input.className = 'cell-input';
-        input.setAttribute('onfocus', `onCellFocus('${addr}', this)`);
-        input.setAttribute('onblur', `onCellBlur('${addr}', this)`);
-        input.setAttribute('onkeydown', `handleCellKeydown(event, '${addr}')`);
+        input.addEventListener('focus', (e) => onCellFocus(addr, e.target));
+        input.addEventListener('blur', (e) => onCellBlur(addr, e.target));
+        input.addEventListener('keydown', (e) => handleCellKeydown(e, addr));
         
         cellDiv.appendChild(input);
         rowDiv.appendChild(cellDiv);
@@ -242,16 +243,17 @@ function expandGridIfNeeded(container, ws, newMaxRows, newMaxCols) {
         const cellDiv = document.createElement('div');
         cellDiv.className = `modern-cell ${hasFormula ? 'has-formula' : ''}`;
         cellDiv.setAttribute('data-cell', addr);
-        cellDiv.setAttribute('data-row', rowIndex);
+        cellDiv.setAttribute('data-row', rowIndex + 1);
+        cellDiv.setAttribute('data-row-index', rowIndex);
         cellDiv.setAttribute('data-col', c);
         
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = escapeHtml(value);
+        input.value = value;
         input.className = 'cell-input';
-        input.setAttribute('onfocus', `onCellFocus('${addr}', this)`);
-        input.setAttribute('onblur', `onCellBlur('${addr}', this)`);
-        input.setAttribute('onkeydown', `handleCellKeydown(event, '${addr}')`);
+        input.addEventListener('focus', (e) => onCellFocus(addr, e.target));
+        input.addEventListener('blur', (e) => onCellBlur(addr, e.target));
+        input.addEventListener('keydown', (e) => handleCellKeydown(e, addr));
         
         cellDiv.appendChild(input);
         rowDiv.appendChild(cellDiv);
@@ -272,7 +274,7 @@ export function updateSingleCell(cellAddr, newValue) {
   
   const input = cellElement.querySelector('.cell-input');
   if (input && input.value !== String(newValue)) {
-    input.value = escapeHtml(newValue);
+    input.value = newValue;
   }
 }
 
@@ -323,7 +325,7 @@ function generateGridRows(ws, maxRows, maxCols) {
   for (let r = 0; r < maxRows; r++) {
     html += `
       <div class="grid-row">
-        <div class="row-header" data-row="${r + 1}">${r + 1}</div>
+        <div class="row-header" data-row="${r + 1}" data-row-index="${r}">${r + 1}</div>
         ${generateRowCells(ws, r, maxCols)}
       </div>`;
   }
@@ -332,7 +334,7 @@ function generateGridRows(ws, maxRows, maxCols) {
 }
 
 function generateRowCells(ws, row, maxCols) {
-  let html = '';
+  const fragment = document.createDocumentFragment();
   
   for (let c = 0; c < maxCols; c++) {
     const addr = XLSX.utils.encode_cell({ r: row, c });
@@ -346,7 +348,7 @@ function generateRowCells(ws, row, maxCols) {
         hasFormula = true;
         try {
           if (typeof getFormulaEngine === 'function') {
-            const result = getFormulaEngine(AppState.wb, AppState.activeSheet).execute('=' + cell.f, AppState.wb, AppState.activeSheet);
+            const result = getFormulaEngine(AppState.wb, AppState.activeSheet).execute('=' + cell.f, AppState.wb, AppState.activeSheet, addr);
             value = (result && typeof result === 'object' && result.error) ? '#ERROR!' : (result || '');
           } else {
             value = cell.f;
@@ -359,41 +361,77 @@ function generateRowCells(ws, row, maxCols) {
       }
     }
     
-    const cellClasses = `modern-cell ${hasFormula ? 'has-formula' : ''}`;
+    const cellDiv = document.createElement('div');
+    cellDiv.className = `modern-cell ${hasFormula ? 'has-formula' : ''}`;
+    cellDiv.setAttribute('data-cell', addr);
+    cellDiv.setAttribute('data-row', row + 1);
+    cellDiv.setAttribute('data-row-index', row);
+    cellDiv.setAttribute('data-col', c);
     
-    html += `
-      <div class="${cellClasses}" data-cell="${addr}" data-row="${row}" data-col="${c}">
-        <input type="text" 
-               value="${escapeHtml(value)}" 
-               class="cell-input"
-               onfocus="onCellFocus('${addr}', this)"
-               onblur="onCellBlur('${addr}', this)"
-               onkeydown="handleCellKeydown(event, '${addr}')" />
-      </div>`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value; // No escaping needed for .value
+    input.className = 'cell-input';
+    input.addEventListener('focus', (e) => onCellFocus(addr, e.target));
+    input.addEventListener('blur', (e) => onCellBlur(addr, e.target));
+    input.addEventListener('keydown', (e) => handleCellKeydown(e, addr));
+    
+    cellDiv.appendChild(input);
+    fragment.appendChild(cellDiv);
   }
   
-  return html;
+  // This is a trick to return HTML string from a fragment
+  const dummyDiv = document.createElement('div');
+  dummyDiv.appendChild(fragment);
+  return dummyDiv.innerHTML;
 }
 
 function addModernInteractions() {
-  // Add smooth scrolling and interactions
   const container = document.getElementById('spreadsheet');
   if (!container) return;
-  
-  // Highlight on hover
-  container.addEventListener('mouseover', (e) => {
+
+  // Delegated event listeners for cells
+  container.addEventListener('focusin', (e) => {
+    if (e.target.classList.contains('cell-input')) {
+      const cellElement = e.target.closest('.modern-cell');
+      if (cellElement) {
+        onCellFocus(cellElement.dataset.cell, e.target);
+      }
+    }
+  });
+
+  container.addEventListener('focusout', (e) => {
+    if (e.target.classList.contains('cell-input')) {
+      const cellElement = e.target.closest('.modern-cell');
+      if (cellElement) {
+        onCellBlur(cellElement.dataset.cell, e.target);
+      }
+    }
+  });
+
+  container.addEventListener('keydown', (e) => {
+    if (e.target.classList.contains('cell-input')) {
+      const cellElement = e.target.closest('.modern-cell');
+      if (cellElement) {
+        handleCellKeydown(e, cellElement.dataset.cell);
+      }
+    }
+  });
+
+  // Use pointerenter/pointerleave for more reliable hover
+  container.addEventListener('pointerenter', (e) => {
     const cell = e.target.closest('.modern-cell');
     if (cell) {
       cell.classList.add('hovered');
     }
-  });
+  }, true);
   
-  container.addEventListener('mouseout', (e) => {
+  container.addEventListener('pointerleave', (e) => {
     const cell = e.target.closest('.modern-cell');
     if (cell) {
       cell.classList.remove('hovered');
     }
-  });
+  }, true);
 }
 
 // Selection highlighting

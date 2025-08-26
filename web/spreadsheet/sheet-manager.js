@@ -64,6 +64,8 @@ export function addNewSheet() {
 
   const ws = XLSX.utils.aoa_to_sheet([['']]);
   XLSX.utils.book_append_sheet(AppState.wb, ws, newName);
+  AppState.wbVersion++;
+  getFormulaEngine(AppState.wb, AppState.activeSheet).invalidateCache();
   AppState.activeSheet = newName;
   renderSheetTabs();
   renderSpreadsheetTable();
@@ -97,6 +99,8 @@ export async function deleteSheet(sheetName) {
   // Remove from SheetNames and Sheets
   AppState.wb.SheetNames.splice(sheetIndex, 1);
   delete AppState.wb.Sheets[sheetName];
+  AppState.wbVersion++;
+  getFormulaEngine(AppState.wb, AppState.activeSheet).invalidateCache();
 
   // Switch to another sheet if this was active
   if (AppState.activeSheet === sheetName) {
