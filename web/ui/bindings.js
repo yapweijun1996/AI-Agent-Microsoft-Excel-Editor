@@ -181,7 +181,7 @@ export function bindUI() {
     }
   });
 
-  document.getElementById('help-btn')?.addEventListener('click', showHelpModal;
+  document.getElementById('help-btn')?.addEventListener('click', showHelpModal);
 
   document.getElementById('dry-run-toggle')?.addEventListener('change', (e) => { AppState.dryRun = e.target.checked; });
   document.getElementById('auto-execute-toggle')?.addEventListener('change', (e) => { AppState.autoExecute = e.target.checked; });
