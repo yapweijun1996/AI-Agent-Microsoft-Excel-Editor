@@ -94,13 +94,13 @@ function initializeScrollHandler(container) {
       const currentScrollLeft = parent.scrollLeft;
       
       // Only re-render if scroll difference is significant
-      if (Math.abs(currentScrollTop - lastScrollTop) > GRID_CONFIG.defaultRowHeight * 2 ||
-          Math.abs(currentScrollLeft - lastScrollLeft) > GRID_CONFIG.defaultColWidth * 3) {
+      if (Math.abs(currentScrollTop - lastScrollTop) > GRID_CONFIG.defaultRowHeight * 3 ||
+          Math.abs(currentScrollLeft - lastScrollLeft) > GRID_CONFIG.defaultColWidth * 4) {
         lastScrollTop = currentScrollTop;
         lastScrollLeft = currentScrollLeft;
         renderVisibleGrid(container, getWorksheet());
       }
-    }, 16); // ~60fps
+    }, 50); // Reduced frequency for better performance
   }, { passive: true });
 }
 
@@ -111,14 +111,64 @@ function renderVisibleGrid(container, ws) {
   const ref = ws['!ref'] || 'A1:Z50';
   const range = XLSX.utils.decode_range(ref);
   
-  // Limit the range to prevent UI crashes
+  // Adaptive limits based on data size to prevent UI crashes
+  const totalCells = (range.e.r + 1) * (range.e.c + 1);
+  let maxRows, maxCols;
+  
+  if (totalCells > 10000) {
+    // Large dataset - very conservative limits
+    maxRows = 100;
+    maxCols = 20;
+  } else if (totalCells > 5000) {
+    // Medium dataset - moderate limits
+    maxRows = 150;
+    maxCols = 30;
+  } else {
+    // Small dataset - generous limits
+    maxRows = 500;
+    maxCols = 100;
+  }
+  
   const safeRange = {
     s: { r: 0, c: 0 },
     e: { 
-      r: Math.min(range.e.r, 200), // Limit to 200 rows for performance
-      c: Math.min(range.e.c, 50)   // Limit to 50 columns for performance
+      r: Math.min(range.e.r, maxRows),
+      c: Math.min(range.e.c, maxCols)
     }
   };
+  
+  // Log performance warning for large datasets
+  if (totalCells > 10000) {
+    console.warn(`Large dataset detected (${totalCells} cells). Limiting display to ${maxRows}x${maxCols} for performance.`);
+    
+    // Show performance warning to user
+    const existingWarning = document.getElementById('performance-warning');
+    if (!existingWarning) {
+      const warning = document.createElement('div');
+      warning.id = 'performance-warning';
+      warning.className = 'fixed top-16 right-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded z-50 max-w-md';
+      warning.innerHTML = `
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+          </svg>
+          <div>
+            <strong>Large Dataset Detected</strong>
+            <p class="text-sm mt-1">Showing ${maxRows}×${maxCols} cells of ${totalCells.toLocaleString()} total for optimal performance. Use scroll to navigate.</p>
+          </div>
+          <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-yellow-600 hover:text-yellow-800">×</button>
+        </div>
+      `;
+      document.body.appendChild(warning);
+      
+      // Auto-remove warning after 10 seconds
+      setTimeout(() => {
+        if (warning && warning.parentElement) {
+          warning.remove();
+        }
+      }, 10000);
+    }
+  }
   
   const scrollTop = parent.scrollTop;
   const containerHeight = parent.clientHeight;
@@ -167,9 +217,29 @@ function renderVisibleGrid(container, ws) {
     for (let c = firstCol; c <= lastCol; c++) {
       const addr = XLSX.utils.encode_cell({ r, c });
       const cell = ws[addr];
-      const value = cell ? (cell.f ? getFormulaEngine(AppState.wb, AppState.activeSheet).execute('=' + cell.f, AppState.wb, AppState.activeSheet) : cell.v) : '';
-      const styles = cell?.s || {};
       
+      // Safe value calculation with error handling
+      let value = '';
+      try {
+        if (cell) {
+          if (cell.f && typeof getFormulaEngine === 'function') {
+            try {
+              const result = getFormulaEngine(AppState.wb, AppState.activeSheet).execute('=' + cell.f, AppState.wb, AppState.activeSheet);
+              value = (result && typeof result === 'object' && result.error) ? '#ERROR!' : (result || '');
+            } catch (formulaError) {
+              value = '#FORMULA!';
+              console.warn('Formula execution error for', addr, ':', formulaError);
+            }
+          } else {
+            value = cell.v || '';
+          }
+        }
+      } catch (error) {
+        value = '#ERROR!';
+        console.warn('Cell processing error for', addr, ':', error);
+      }
+      
+      const styles = cell?.s || {};
       const cellStyle = buildCellStyle(styles);
       const hasComment = cell?.c?.t;
       const colWidth = getColumnWidth(c);
