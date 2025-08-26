@@ -55,12 +55,13 @@ export async function onSend() {
       await saveTasks();
       drawTasks();
 
-      let responseContent = `✅ I've analyzed your request and created ${tasks.length} task(s):\n\n`;
-      tasks.forEach((task, i) => {
-        responseContent += `${i + 1}. **${task.title}**: ${task.description}\n`;
-      });
-      responseContent += `\n🎯 Click the execute button on each task to run them, or use "Execute All" for orchestrated execution.`;
-
+      let responseContent = `✅ I've analyzed your request and created ${tasks.length} task(s).`;
+      if (AppState.autoExecute) {
+        responseContent += ` I will now execute them automatically.`;
+      } else {
+        responseContent += `\n\n🎯 Click the execute button on each task to run them, or use "Execute All" for orchestrated execution.`;
+      }
+      
       const aiMsg = { role: 'assistant', content: responseContent, timestamp: Date.now() };
       AppState.messages.push(aiMsg);
       drawChat();

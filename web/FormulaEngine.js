@@ -1,12 +1,21 @@
 // ===================================================================
 // FormulaEngine.js - Advanced Formula Parsing and Execution Engine
 // ===================================================================
+/* global formulaParser */
 
 class FormulaEngine {
   constructor(data, activeSheetName = null) {
     this.data = data; // Spreadsheet data
     this.activeSheetName = activeSheetName;
-    this.parser = new HotFormulaParser.Parser();
+    
+    // Check if formulaParser is available
+    if (typeof formulaParser === 'undefined') {
+      console.error('Formula parser library not loaded. Please ensure hot-formula-parser is included.');
+      this.parser = null;
+      return;
+    }
+    
+    this.parser = new formulaParser.Parser();
     this.init();
   }
 
@@ -24,6 +33,15 @@ class FormulaEngine {
   }
 
   execute(formula, data, activeSheetName = null) {
+    // Return simple value if parser is not available
+    if (!this.parser) {
+      // Try to evaluate simple expressions or return the formula as text
+      if (formula.startsWith('=')) {
+        return formula.substring(1); // Return without '=' prefix
+      }
+      return formula;
+    }
+    
     this.data = data;
     if (activeSheetName) {
       this.activeSheetName = activeSheetName;
