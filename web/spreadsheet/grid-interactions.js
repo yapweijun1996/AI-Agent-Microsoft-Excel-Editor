@@ -238,7 +238,7 @@ function onCellFocus(addr, input) {
   }
 };
 
-function onCellBlur(addr, input) {
+export function onCellBlur(addr, input) {
   updateCell(addr, input.value);
 };
 
