@@ -1,7 +1,7 @@
 import { AppState } from '../core/state.js';
 import { getWorksheet, persistSnapshot } from './workbook-manager.js';
 import { saveToHistory } from './history-manager.js';
-import { renderSpreadsheetTable, applySelectionHighlight, updateSingleCell } from './grid-renderer.js';
+import { renderSpreadsheetTable } from './grid-renderer.js';
 import { showToast } from '../ui/toast.js';
 import { parseCellValue, expandRefForCell } from '../utils/index.js';
 import { applyEditsOrDryRun } from './operations.js';
