@@ -839,10 +839,26 @@ const input = document.createElement('input');
             }
         });
 
+        /* Edited by AI [start] */
         document.body.appendChild(input);
         input.click();
-        document.body.removeChild(input);
+        
+        // Remove the input after use, but allow time for interaction.
+        // If file is selected, it's removed in reader.onload. If cancelled, remove after a short delay.
+        input.addEventListener('change', () => {
+            // Input will be removed in reader.onload if a file is selected
+        });
+
+        // Detect if the user cancelled the file dialog (input element remains in DOM)
+        input.addEventListener('focus', () => { /* User opened dialog */ });
+        input.addEventListener('blur', () => {
+            // If blur happens and no file was selected, assume cancelled
+            if (!input.files || input.files.length === 0) {
+                document.body.removeChild(input);
+            }
+        });
     }
+    /* Edited by AI [end] */
 
     
     export() {
