@@ -19,6 +19,9 @@ class Excel {
             type: 'cell' // 'cell', 'row', 'col'
         };
         
+        // Store event handlers for cleanup
+        this.eventHandlers = [];
+        
         this.init();
     }
     
@@ -43,9 +46,14 @@ class Excel {
     }
     
     generateGrid() {
-        const container = document.getElementById('grid-container');
-        
-        let html = '<table class="excel-table">';
+        try {
+            const container = document.getElementById('grid-container');
+            if (!container) {
+                console.error('Grid container not found');
+                return;
+            }
+            
+            let html = '<table class="excel-table">';
         
         // HEADER ROW
         html += '<tr>';
@@ -78,7 +86,11 @@ class Excel {
         container.innerHTML = html;
         container.appendChild(loading);
         
-        console.log(`📊 Generated ${this.rows}×${this.cols} grid (${this.rows * this.cols} cells)`);
+            console.log(`📊 Generated ${this.rows}×${this.cols} grid (${this.rows * this.cols} cells)`);
+        } catch (error) {
+            console.error('Error generating grid:', error);
+            this.updateStatus('Error generating grid');
+        }
     }
     
     setupEvents() {
@@ -125,11 +137,31 @@ class Excel {
             });
         });
         
-        // Toolbar
-        document.getElementById('new-btn').addEventListener('click', () => this.newWorkbook());
-        document.getElementById('save-btn').addEventListener('click', () => this.save());
-        document.getElementById('load-btn').addEventListener('click', () => this.load());
-        document.getElementById('export-btn').addEventListener('click', () => this.export());
+        // Toolbar - use event delegation for reliability and dynamic elements
+        const toolbar = document.querySelector('.toolbar');
+        if (toolbar) {
+            const toolbarClickHandler = (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+                switch (btn.id) {
+                    case 'new-btn':
+                        this.newWorkbook();
+                        break;
+                    case 'save-btn':
+                        this.save();
+                        break;
+                    case 'load-btn':
+                        this.load();
+                        break;
+                    case 'export-btn':
+                        this.export();
+                        break;
+                }
+            };
+            toolbar.addEventListener('click', toolbarClickHandler);
+            // store handler for cleanup to avoid leaks and allow re-initialization
+            this.eventHandlers.push({ element: toolbar, event: 'click', handler: toolbarClickHandler });
+        }
         
         // Column/Row selection
         document.addEventListener('click', (e) => {
@@ -261,7 +293,7 @@ class Excel {
                        (e.key === 'ArrowLeft' && input.selectionStart === 0) ||
                        (e.key === 'ArrowRight' && input.selectionStart === input.value.length))) {
             e.preventDefault();
-            const nextInput = document.querySelector(`[data-addr="${newAddr}"]`);
+            const nextInput = document.querySelector(`input[data-addr="${newAddr}"]`);
             if (nextInput) {
                 nextInput.focus();
                 nextInput.select();
@@ -316,6 +348,11 @@ class Excel {
         
         // Switch active sheet
         this.activeSheet = sheetName;
+        
+        // Create sheet if it doesn't exist
+        if (!this.workbook[this.activeSheet]) {
+            this.workbook[this.activeSheet] = {};
+        }
         
         // Update UI
         document.querySelectorAll('.sheet-tab').forEach(tab => {
@@ -452,19 +489,25 @@ class Excel {
     }
     
     async pasteCell(addr) {
-        if (navigator.clipboard) {
-            try {
-                const text = await navigator.clipboard.readText();
-                this.getCurrentSheetData()[addr] = text;
-                const input = document.querySelector(`[data-addr="${addr}"]`);
-                if (input) {
-                    input.value = text;
-                }
-                this.updateCellCount();
-                this.updateStatus(`Pasted to cell ${addr}`);
-            } catch (err) {
-                this.updateStatus('Paste failed');
+        if (!navigator.clipboard) {
+            this.updateStatus('Clipboard not supported');
+            return;
+        }
+        
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) return;
+            
+            this.getCurrentSheetData()[addr] = text;
+            const input = document.querySelector(`[data-addr="${addr}"]`);
+            if (input) {
+                input.value = text;
             }
+            this.updateCellCount();
+            this.updateStatus(`Pasted to cell ${addr}`);
+        } catch (err) {
+            console.error('Paste error:', err);
+            this.updateStatus('Paste failed: ' + (err.message || 'Unknown error'));
         }
     }
     
@@ -555,7 +598,7 @@ class Excel {
     }
     
     evaluateFormula(formula) {
-        // Basic formula evaluation - could be enhanced with a proper parser
+        // Safe formula evaluation without eval()
         try {
             const expr = formula.substring(1); // Remove =
             
@@ -567,11 +610,42 @@ class Excel {
                 }
             }
             
-            // Simple arithmetic
+            // Simple arithmetic - safe evaluation
             if (/^[\d\+\-\*\/\(\)\s\.]+$/.test(expr)) {
-                return eval(expr);
+                return this.safeArithmeticEval(expr);
             }
             
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    safeArithmeticEval(expr) {
+        // Safe arithmetic evaluation without eval()
+        try {
+            // Remove whitespace
+            expr = expr.replace(/\s/g, '');
+            
+            // Simple expression parser for basic arithmetic
+            
+            // For very simple expressions like "2*3" or "10+5"
+            if (/^\d+[\+\-\*\/]\d+$/.test(expr)) {
+                const operator = expr.match(/[\+\-\*\/]/)[0];
+                const parts = expr.split(operator);
+                const a = parseFloat(parts[0]);
+                const b = parseFloat(parts[1]);
+                
+                switch (operator) {
+                    case '+': return a + b;
+                    case '-': return a - b;
+                    case '*': return a * b;
+                    case '/': return b !== 0 ? a / b : '#DIV/0!';
+                    default: return null;
+                }
+            }
+            
+            // For more complex expressions, return null (requires proper parser)
             return null;
         } catch (e) {
             return null;
@@ -653,8 +727,19 @@ class Excel {
         console.log('📋 Sample data loaded');
     }
     
+    cleanup() {
+        // Remove all event listeners to prevent memory leaks
+        this.eventHandlers.forEach(({ element, event, handler }) => {
+            element.removeEventListener(event, handler);
+        });
+        this.eventHandlers = [];
+    }
+
     newWorkbook() {
         if (confirm('Create new workbook? This will clear all data.')) {
+            // Cleanup existing event handlers
+            this.cleanup();
+            
             this.workbook = {
                 Sheet1: {},
                 Sheet2: {},
@@ -668,6 +753,9 @@ class Excel {
                 input.removeAttribute('title');
                 input.style.color = '';
             });
+            
+            // Re-setup events after cleanup
+            this.setupEvents();
             
             this.updateCellCount();
             this.updateStatus('New workbook created');
@@ -695,7 +783,7 @@ class Excel {
     }
     
     load() {
-        const input = document.createElement('input');
+const input = document.createElement('input');
         input.type = 'file';
         // Allow JSON, XLSX, and CSV files
         input.accept = '.json,.xlsx,.csv'; 
@@ -708,32 +796,28 @@ class Excel {
 
             reader.onload = (e) => {
                 try {
-                    let loadedWorkbookData;
                     if (file.name.endsWith('.json')) {
-                        // Handle JSON files as before
                         const data = JSON.parse(e.target.result);
-                        loadedWorkbookData = data.workbook || data;
+                        this.workbook = data.workbook || data;
                         this.activeSheet = data.activeSheet || 'Sheet1';
                     } else {
-                        // Handle XLSX and CSV files using the XLSX library
+                        if (typeof XLSX === 'undefined') {
+                            alert('Error: XLSX library not loaded. Cannot read Excel files.');
+                            return;
+                        }
                         const data = new Uint8Array(e.target.result);
                         const workbook = XLSX.read(data, { type: 'array' });
-                        
-                        // Assuming we load the first sheet into Sheet1 of our internal workbook
-                        // You might want to iterate through all sheets and add them
                         const sheetName = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[sheetName];
-                        
-                        // Convert worksheet to an array of arrays (or JSON)
                         const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                         
-                        // Convert array of arrays to your internal cell address format (e.g., { 'A1': 'value', 'B1': 'value' })
-                        loadedWorkbookData = this.convertSheetDataToInternalFormat(sheetData);
-                        this.activeSheet = 'Sheet1'; // Set active sheet to the first loaded sheet
+                        this.workbook = {
+                            [sheetName]: this.convertSheetDataToInternalFormat(sheetData)
+                        };
+                        this.activeSheet = sheetName;
                     }
 
-                    this.workbook[this.activeSheet] = loadedWorkbookData;
-                    this.switchSheet(this.activeSheet); // Re-render the grid with new data
+                    this.switchSheet(this.activeSheet);
                     this.updateStatus('Workbook loaded');
 
                 } catch (err) {
@@ -750,10 +834,18 @@ class Excel {
             }
         });
 
+        document.body.appendChild(input);
         input.click();
+        document.body.removeChild(input);
     }
+
     
     export() {
+        if (typeof XLSX === 'undefined') {
+            this.updateStatus('Error: XLSX library not loaded');
+            return;
+        }
+        
         const wb = XLSX.utils.book_new();
         
         // Export all sheets
@@ -832,7 +924,15 @@ class Excel {
     }
     
     getColumnLetter(index) {
-        return String.fromCharCode(65 + index);
+        let letter = '';
+        let num = index + 1; // Convert to 1-based
+        
+        while (num > 0) {
+            num--;
+            letter = String.fromCharCode(num % 26 + 65) + letter;
+            num = Math.floor(num / 26);
+        }
+        return letter;
     }
     
     getCellAddress(row, col) {
@@ -840,10 +940,15 @@ class Excel {
     }
     
     parseAddress(addr) {
-        const match = addr.match(/^([A-Z])(\d+)$/);
+        const match = addr.match(/^([A-Z]+)(\d+)$/);
         if (match) {
+            const colStr = match[1];
+            let col = 0;
+            for (let i = 0; i < colStr.length; i++) {
+                col = col * 26 + (colStr.charCodeAt(i) - 64);
+            }
             return {
-                col: match[1].charCodeAt(0) - 65,
+                col: col - 1,
                 row: parseInt(match[2]) - 1
             };
         }
