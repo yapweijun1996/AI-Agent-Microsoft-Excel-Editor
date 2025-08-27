@@ -116,19 +116,23 @@ class Excel {
         
         // Formula bar
         const formulaInput = document.getElementById('formula-input');
-        formulaInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                this.handleFormulaEnter();
-            }
-        });
-        
-        formulaInput.addEventListener('input', () => {
-            // Real-time formula preview
-            const currentInput = document.querySelector(`[data-addr="${this.currentCell}"]`);
-            if (currentInput) {
-                currentInput.value = formulaInput.value;
-            }
-        });
+        if (formulaInput) {
+            formulaInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.handleFormulaEnter();
+                }
+            });
+            
+            formulaInput.addEventListener('input', () => {
+                // Real-time formula preview
+                const currentInput = document.querySelector(`[data-addr="${this.currentCell}"]`);
+                if (currentInput) {
+                    currentInput.value = formulaInput.value;
+                }
+            });
+        } else {
+            console.warn('Formula input not found');
+        }
         
         // Sheet tabs
         document.querySelectorAll('.sheet-tab').forEach(tab => {
@@ -143,6 +147,7 @@ class Excel {
             const toolbarClickHandler = (e) => {
                 const btn = e.target.closest('button');
                 if (!btn) return;
+                console.log('Toolbar button clicked:', btn.id);
                 switch (btn.id) {
                     case 'new-btn':
                         this.newWorkbook();

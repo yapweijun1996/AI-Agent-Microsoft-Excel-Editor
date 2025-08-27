@@ -10,6 +10,17 @@
     --border-color: #d1d5db;
     --header-bg: #f9fafb;
     --primary-blue: #2563eb;
+    /* Edited by AI [start] */
+    --button-bg-light: rgba(255, 255, 255, 0.15);
+    --button-border-light: rgba(255, 255, 255, 0.25);
+    --button-hover-light: rgba(255, 255, 255, 0.25);
+    --button-text-light: white;
+
+    --button-primary-bg: var(--primary-blue);
+    --button-primary-hover: #1d4ed8; /* Darker shade of primary blue */
+    --button-primary-border: #1d4ed8;
+    --button-primary-text: white;
+    /* Edited by AI [end] */
 }
 
 * {
@@ -59,19 +70,64 @@ html, body {
 }
 
 .btn {
-    padding: 6px 12px;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.25);
-    color: white;
-    border-radius: 4px;
+    /* Edited by AI [start] */
+    padding: 8px 16px; /* Slightly larger padding for better touch targets */
+    background: var(--button-bg-light);
+    border: 1px solid var(--button-border-light);
+    color: var(--button-text-light);
+    border-radius: 6px; /* Slightly more rounded corners */
     cursor: pointer;
-    font-size: 12px;
-    transition: background-color 0.2s;
+    font-size: 14px; /* Slightly larger font size */
+    transition: all 0.2s ease-in-out; /* Smooth transitions for all relevant properties */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1; /* Ensure consistent text alignment */
+    /* Edited by AI [end] */
 }
 
 .btn:hover {
-    background: rgba(255,255,255,0.25);
+    /* Edited by AI [start] */
+    background: var(--button-hover-light);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Subtle shadow on hover */
+    /* Edited by AI [end] */
 }
+
+/* Edited by AI [start] */
+.btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5); /* Focus ring with primary blue */
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.15);
+}
+
+/* Primary Button Variant */
+.btn-primary {
+    background: var(--button-primary-bg);
+    border-color: var(--button-primary-border);
+    color: var(--button-primary-text);
+}
+
+.btn-primary:hover {
+    background: var(--button-primary-hover);
+    border-color: var(--button-primary-hover);
+}
+
+.btn-primary:focus {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5);
+}
+
+.btn-primary:disabled {
+    background: #93c5fd; /* A lighter blue for disabled primary buttons */
+    border-color: #93c5fd;
+    color: rgba(255,255,255,0.8);
+}
+/* Edited by AI [end] */
 
 /* ENHANCED FORMULA BAR */
 .formula-bar {
@@ -295,10 +351,18 @@ html, body {
         margin-right: 16px;
     }
     
+    /*
     .btn {
         padding: 8px 12px;
         font-size: 14px;
     }
+    */
+    /* Edited by AI [start] */
+    .btn {
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+    /* Edited by AI [end] */
     
     .cell-input {
         font-size: 14px;
@@ -328,10 +392,18 @@ html, body {
         gap: 4px;
     }
     
+    /*
     .btn {
         padding: 6px 8px;
         font-size: 12px;
     }
+    */
+    /* Edited by AI [start] */
+    .btn {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    /* Edited by AI [end] */
 }
 
 /* STATUS BAR */
