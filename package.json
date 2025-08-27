@@ -1,7 +1,24 @@
 {
-  "devDependencies": {
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.12"
-  }
+  "name": "excel",
+  "version": "2.0.0",
+  "description": "Bulletproof web-based Excel application with zero dependencies",
+  "main": "web/index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "serve": "npx http-server -p 8000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yapweijun/AI-Agent-Microsoft-Excel-Editor"
+  },
+  "keywords": [
+    "spreadsheet",
+    "excel", 
+    "clean-architecture",
+    "vanilla-javascript",
+    "mobile-responsive"
+  ],
+  "author": "Clean Architecture Team",
+  "license": "MIT",
+  "devDependencies": {}
 }
