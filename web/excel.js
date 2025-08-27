@@ -392,6 +392,8 @@ class Excel {
             <div class="context-menu-item" data-action="paste">Paste</div>
             <div class="context-menu-item" data-action="clear">Clear</div>
             <div class="context-menu-item" data-action="format">Format Cell</div>
+            <div class="context-menu-item" data-action="insert-row-above">Insert Row Above</div>
+            <div class="context-menu-item" data-action="insert-col-left">Insert Column Left</div>
         `;
         
         menu.style.left = x + 'px';
@@ -429,6 +431,14 @@ class Excel {
                 break;
             case 'format':
                 this.formatCell(addr);
+                break;
+            case 'insert-row-above':
+                const { row } = this.parseAddress(addr);
+                this.addRow(row);
+                break;
+            case 'insert-col-left':
+                const { col } = this.parseAddress(addr);
+                this.addColumn(col);
                 break;
         }
     }
@@ -480,6 +490,69 @@ class Excel {
             }
         }
     }
+
+    addRow(atIndex) {
+        // Increment total rows
+        this.rows++;
+        
+        // Re-generate grid for simplicity, or implement more complex DOM manipulation
+        // Re-generating is simpler but less performant for very large grids
+        this.generateGrid(); 
+        
+        // Adjust data in workbook if necessary (e.g., shift existing data down)
+        // This is a complex part: if you insert a row, all cells below need their row index incremented.
+        // For example, A10 becomes A11, B10 becomes B11, etc.
+        this.shiftData('row', atIndex, 1); // Shift data down by 1 row
+        
+        this.updateStatus(`Added row at index ${atIndex + 1}`);
+    }
+
+    addColumn(atIndex) {
+        // Increment total columns
+        this.cols++;
+        
+        // Re-generate grid
+        this.generateGrid();
+        
+        // Adjust data in workbook (e.g., shift existing data right)
+        // For example, C1 becomes D1, C2 becomes D2, etc.
+        this.shiftData('col', atIndex, 1); // Shift data right by 1 column
+        
+        this.updateStatus(`Added column at index ${this.getColumnLetter(atIndex)}`);
+    }
+
+    // Helper to shift data when rows/columns are added/deleted
+    shiftData(type, index, offset) {
+        const currentSheet = this.getCurrentSheetData();
+        const newSheet = {};
+
+        // Get all existing addresses and sort them to ensure correct shifting order
+        const addresses = Object.keys(currentSheet).sort((a, b) => {
+            const posA = this.parseAddress(a);
+            const posB = this.parseAddress(b);
+            if (posA.row !== posB.row) return posA.row - posB.row;
+            return posA.col - posB.col;
+        });
+
+        addresses.forEach(addr => {
+            const pos = this.parseAddress(addr);
+            let newRow = pos.row;
+            let newCol = pos.col;
+
+            if (type === 'row' && pos.row >= index) {
+                newRow += offset;
+            } else if (type === 'col' && pos.col >= index) {
+                newCol += offset;
+            }
+
+            const newAddr = this.getCellAddress(newRow, newCol);
+            newSheet[newAddr] = currentSheet[addr];
+        });
+
+        this.workbook[this.activeSheet] = newSheet;
+        // Re-evaluate all formulas after shifting data
+        this.recalculateAllCells(); 
+    }
     
     evaluateFormula(formula) {
         // Basic formula evaluation - could be enhanced with a proper parser
@@ -525,6 +598,20 @@ class Excel {
             }
         }
         return sum;
+    }
+
+    recalculateAllCells() {
+        const currentSheet = this.getCurrentSheetData();
+        Object.keys(currentSheet).forEach(addr => {
+            const value = currentSheet[addr];
+            if (value.startsWith('=')) {
+                const result = this.evaluateFormula(value);
+                const input = document.querySelector(`[data-addr="${addr}"]`);
+                if (input) {
+                    input.setAttribute('title', `Formula: ${value}\nResult: ${result}`);
+                }
+            }
+        });
     }
     
     loadSampleData() {
@@ -610,30 +697,59 @@ class Excel {
     load() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json';
-        
+        // Allow JSON, XLSX, and CSV files
+        input.accept = '.json,.xlsx,.csv'; 
+
         input.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             const reader = new FileReader();
+
             reader.onload = (e) => {
                 try {
-                    const data = JSON.parse(e.target.result);
-                    this.workbook = data.workbook || data; // Support old format
-                    this.activeSheet = data.activeSheet || 'Sheet1';
-                    
-                    // Switch to loaded sheet
-                    this.switchSheet(this.activeSheet);
-                    
+                    let loadedWorkbookData;
+                    if (file.name.endsWith('.json')) {
+                        // Handle JSON files as before
+                        const data = JSON.parse(e.target.result);
+                        loadedWorkbookData = data.workbook || data;
+                        this.activeSheet = data.activeSheet || 'Sheet1';
+                    } else {
+                        // Handle XLSX and CSV files using the XLSX library
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Assuming we load the first sheet into Sheet1 of our internal workbook
+                        // You might want to iterate through all sheets and add them
+                        const sheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[sheetName];
+                        
+                        // Convert worksheet to an array of arrays (or JSON)
+                        const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        
+                        // Convert array of arrays to your internal cell address format (e.g., { 'A1': 'value', 'B1': 'value' })
+                        loadedWorkbookData = this.convertSheetDataToInternalFormat(sheetData);
+                        this.activeSheet = 'Sheet1'; // Set active sheet to the first loaded sheet
+                    }
+
+                    this.workbook[this.activeSheet] = loadedWorkbookData;
+                    this.switchSheet(this.activeSheet); // Re-render the grid with new data
                     this.updateStatus('Workbook loaded');
+
                 } catch (err) {
-                    alert('Invalid file format');
+                    console.error('Error loading file:', err);
+                    alert('Invalid file format or error processing file.');
                 }
             };
-            reader.readAsText(file);
+
+            // Read file based on type
+            if (file.name.endsWith('.json')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file); // Read as ArrayBuffer for XLSX/CSV
+            }
         });
-        
+
         input.click();
     }
     
@@ -696,6 +812,19 @@ class Excel {
                 document.getElementById('status-left').textContent = 'Ready';
             }
         }, 3000);
+    }
+
+    convertSheetDataToInternalFormat(sheetData) {
+        const internalSheet = {};
+        sheetData.forEach((row, rIdx) => {
+            row.forEach((cellValue, cIdx) => {
+                const addr = this.getCellAddress(rIdx, cIdx);
+                if (cellValue !== undefined && cellValue !== null && cellValue !== '') {
+                    internalSheet[addr] = String(cellValue); // Store as string
+                }
+            });
+        });
+        return internalSheet;
     }
     
     getCurrentSheetData() {
