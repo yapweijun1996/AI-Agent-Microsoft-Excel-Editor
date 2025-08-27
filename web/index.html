@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Excel</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" />
 </head>
 <body>
     <div class="app">
@@ -22,6 +23,12 @@
             </div>
         </div>
         
+        <!-- CDN LOADER -->
+        <div class="cdn-loader">
+            <input type="text" id="cdn-url" placeholder="Enter CDN URL for xlsx.full.min.js">
+            <button class="btn" id="load-cdn-btn">Load Library</button>
+        </div>
+
         <!-- ENHANCED FORMULA BAR -->
         <div class="formula-bar">
             <div class="cell-ref" id="cell-ref">A1</div>
@@ -36,15 +43,8 @@
             <div class="sheet-tab" data-sheet="Sheet3">Sheet3</div>
         </div>
         
-        <!-- THE GRID - PURE HTML TABLE -->
-        <div class="grid-container" id="grid-container">
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <div>Loading Excel Grid...</div>
-                <div style="font-size: 10px; color: #9ca3af; margin-top: 8px;">Bulletproof Architecture</div>
-            </div>
-            <!-- Grid will be generated here -->
-        </div>
+        <!-- THE GRID - HANDSONTABLE -->
+        <div id="grid-container"></div>
         
         <!-- STATUS BAR -->
         <div class="status">
@@ -54,8 +54,9 @@
         
     </div>
 
-    <!-- XLSX LIBRARY -->
+    <!-- LIBRARIES -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
     <script src="excel.js"></script>
 </body>
 </html>
