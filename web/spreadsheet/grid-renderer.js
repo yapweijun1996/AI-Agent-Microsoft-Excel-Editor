@@ -2,6 +2,11 @@ import { AppState } from '../core/state.js';
 import { getWorksheet } from './workbook-manager.js';
 import { escapeHtml } from '../utils/index.js';
 import { bindGridHeaderEvents, onCellBlur, onCellFocus, handleCellKeydown } from './grid-interactions.js';
+import { ExcelGridEngine } from '../lib/grid-engine.js';
+import { VirtualGrid } from '../lib/virtual-grid.js';
+import { GridEventManager } from '../lib/event-manager.js';
+import { GridPluginManager, AdvancedFormulaPlugin, CSVPlugin, PerformancePlugin } from '../lib/plugin-system.js';
+import { GridPerformanceMonitor } from '../lib/performance-monitor.js';
 /* global XLSX, getFormulaEngine */
 
 // Modern Excel-like Grid Renderer with Clean UI
@@ -24,7 +29,12 @@ let renderState = {
   isRenderScheduled: false,
   initialized: false,
   cellCache: new Map(), // Cache for cell DOM elements
-  lastUpdateTimestamp: 0
+  lastUpdateTimestamp: 0,
+  useVirtualGrid: true, // Enable new virtual grid by default
+  gridEngine: null,
+  eventManager: null,
+  pluginManager: null,
+  performanceMonitor: null
 };
 
 export function renderSpreadsheetTable(forceFullRender = false) {
@@ -46,12 +56,20 @@ export function renderSpreadsheetTable(forceFullRender = false) {
       return;
     }
     
-    // Use incremental rendering if grid is already initialized
-    if (renderState.initialized && !forceFullRender) {
-      updateExistingGrid(container, ws);
+    // Use new virtual grid if enabled and not already initialized
+    if (renderState.useVirtualGrid && !renderState.gridEngine) {
+      initializeNewGridEngine(container, ws);
+    } else if (renderState.gridEngine) {
+      // Refresh existing virtual grid
+      renderState.gridEngine.refresh();
     } else {
-      renderModernGrid(container, ws);
-      renderState.initialized = true;
+      // Fallback to legacy grid system
+      if (renderState.initialized && !forceFullRender) {
+        updateExistingGrid(container, ws);
+      } else {
+        renderModernGrid(container, ws);
+        renderState.initialized = true;
+      }
     }
     
     renderState.lastUpdateTimestamp = Date.now();
@@ -376,21 +394,73 @@ function generateRowCells(ws, row, maxCols) {
   return html;
 }
 
+// Initialize new grid engine and systems
+function initializeNewGridEngine(container, ws) {
+  try {
+    console.log('🚀 Initializing new Excel Grid Engine...');
+    
+    // Create grid engine with optimized settings
+    renderState.gridEngine = new VirtualGrid(container, {
+      rowHeight: 20,
+      colWidth: 64,
+      headerHeight: 20,
+      bufferRows: 10,
+      bufferCols: 10,
+      overscan: 5,
+      smoothScrolling: true
+    });
+    
+    // Initialize event manager
+    renderState.eventManager = new GridEventManager(renderState.gridEngine);
+    
+    // Initialize plugin system
+    renderState.pluginManager = new GridPluginManager(renderState.gridEngine);
+    
+    // Load core plugins
+    renderState.pluginManager.register(AdvancedFormulaPlugin);
+    renderState.pluginManager.register(CSVPlugin);
+    renderState.pluginManager.register(PerformancePlugin);
+    
+    // Initialize performance monitoring
+    renderState.performanceMonitor = new GridPerformanceMonitor(renderState.gridEngine, {
+      enableVisualIndicators: AppState.DEBUG || false,
+      enableConsoleReports: AppState.DEBUG || false
+    });
+    
+    // Preload external libraries for better performance
+    renderState.pluginManager.preloadCore().catch(err => {
+      console.warn('Failed to preload some external libraries:', err);
+    });
+    
+    renderState.initialized = true;
+    
+    console.log('✅ New Excel Grid Engine initialized successfully');
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize new grid engine, falling back to legacy:', error);
+    renderState.useVirtualGrid = false;
+    renderModernGrid(container, ws);
+    renderState.initialized = true;
+  }
+}
+
 function addModernInteractions() {
+  // Skip if using new grid engine (it handles its own events)
+  if (renderState.gridEngine && renderState.eventManager) {
+    return;
+  }
+  
   const container = document.getElementById('spreadsheet');
   if (!container) {
     console.error('🔥 INTERACTIONS: Spreadsheet container not found!');
     return;
   }
   
-  // Set up event delegation for cell interactions
-
-  // Delegated event listeners for cells
+  // Legacy event handling for fallback grid
   container.addEventListener('focusin', (e) => {
     if (e.target.classList.contains('cell-input')) {
       const cellElement = e.target.closest('.modern-cell');
       if (cellElement) {
-        // Cell focused
         onCellFocus(cellElement.dataset.cell, e.target);
       }
     }
@@ -414,8 +484,6 @@ function addModernInteractions() {
     }
   });
 
-  // Use both pointer and touch events for reliable interaction
-  // Pointer events for hover on devices that support it
   if ('PointerEvent' in window) {
     container.addEventListener('pointerenter', (e) => {
       const cell = e.target.closest('.modern-cell');
@@ -432,9 +500,7 @@ function addModernInteractions() {
     }, true);
   }
   
-  // Touch-specific handling for mobile
   container.addEventListener('touchstart', (e) => {
-    // Remove any existing hover states when touch starts
     container.querySelectorAll('.hovered').forEach(el => {
       el.classList.remove('hovered');
     });

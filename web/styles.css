@@ -1261,42 +1261,64 @@ button:active {
   }
 }
 
-/* Mobile AI panel as bottom sheet */
-@media (max-width: 768px) {
-  body.modal-open { overflow: hidden; }
+/* AI panel as bottom sheet for all screen sizes */
+body.modal-open { overflow: hidden; }
 
-  #ai-panel {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    width: 100% !important;
-    height: min(45vh, 520px);
-    max-height: 90vh;
-    border-left: none !important;
-    border-top: 1px solid #e5e7eb;
-    box-shadow: 0 -6px 16px rgba(0,0,0,0.15);
-    transform: translateY(100%);
-    transition: transform 200ms ease-out;
-    display: none !important;
-    z-index: 40;
-    background: #f9fafb;
-  }
-  #ai-panel.open {
-    display: flex !important;
-    transform: translateY(0);
-  }
-
-  #divider { display: none !important; }
-
-  /* Keep messages visible within bottom sheet */
-  #chat-messages {
-    max-height: calc(100% - 160px);
-  }
+/* Backdrop for AI panel */
+#ai-panel-backdrop {
+  opacity: 0;
+  transition: opacity 250ms ease-out;
+  backdrop-filter: blur(2px);
 }
 
-/* Desktop safety: ensure normal document flow */
+#ai-panel-backdrop:not(.hidden) {
+  opacity: 1;
+}
+
+#ai-panel {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  width: 100% !important;
+  height: min(50vh, 600px);
+  max-height: 90vh;
+  border-left: none !important;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.2);
+  transform: translateY(100%);
+  transition: transform 300ms ease-out;
+  display: none !important;
+  z-index: 40;
+  background: #f9fafb;
+}
+
+#ai-panel.open {
+  display: flex !important;
+  transform: translateY(0);
+}
+
+/* Keep messages visible within bottom sheet */
+#chat-messages {
+  max-height: calc(100% - 160px);
+  border-radius: 4px;
+}
+
+/* Desktop-specific adjustments */
 @media (min-width: 769px) {
-  #ai-panel { position: relative; transform: none; }
+  #ai-panel {
+    height: min(60vh, 700px);
+    width: min(90vw, 800px) !important;
+    left: 50%;
+    transform: translate(-50%, 100%);
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -12px 32px rgba(0,0,0,0.25);
+  }
+  
+  #ai-panel.open {
+    transform: translate(-50%, 0);
+  }
 }
+
+#divider { display: none !important; }
 /* === Mobile grid + tabs + container overflow tweaks (2025-08-26, pass 2) === */
 
 /* Ensure spreadsheet container scrolls horizontally when needed */

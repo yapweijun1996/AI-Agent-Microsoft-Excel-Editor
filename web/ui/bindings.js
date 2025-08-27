@@ -13,6 +13,35 @@ import { pickProvider, getSelectedModel } from '../services/api-keys.js';
 import { executeTasks } from '../tasks/task-manager.js';
 /* global XLSX, Chart */
 
+// Helper functions for AI panel control
+function openAIPanel() {
+  const aiPanel = document.getElementById('ai-panel');
+  const backdrop = document.getElementById('ai-panel-backdrop');
+  const fab = document.getElementById('chat-toggle');
+  
+  if (aiPanel) {
+    aiPanel.classList.add('open');
+    aiPanel.setAttribute('aria-hidden', 'false');
+  }
+  if (backdrop) backdrop.classList.remove('hidden');
+  if (fab) fab.classList.add('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function closeAIPanel() {
+  const aiPanel = document.getElementById('ai-panel');
+  const backdrop = document.getElementById('ai-panel-backdrop');
+  const fab = document.getElementById('chat-toggle');
+  
+  if (aiPanel) {
+    aiPanel.classList.remove('open');
+    aiPanel.setAttribute('aria-hidden', 'true');
+  }
+  if (backdrop) backdrop.classList.add('hidden');
+  if (fab) fab.classList.remove('hidden');
+  document.body.classList.remove('modal-open');
+}
+
 // UI bindings
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
@@ -95,14 +124,10 @@ function initKeyboardShortcuts() {
       if (document.activeElement === chatInput) {
         chatInput.blur();
       }
-      // Close AI panel bottom sheet on mobile if open
+      // Close AI panel if open (unified behavior)
       const aiPanel = document.getElementById('ai-panel');
       if (aiPanel && aiPanel.classList.contains('open')) {
-        aiPanel.classList.remove('open');
-        document.body.classList.remove('modal-open');
-        const fab = document.getElementById('mobile-chat-toggle');
-        if (fab) fab.classList.remove('hidden');
-        aiPanel.setAttribute('aria-hidden', 'true');
+        closeAIPanel();
       }
     }
   });
@@ -222,52 +247,32 @@ export function bindUI() {
   document.getElementById('delete-row-btn')?.addEventListener('click', deleteSelectedRow);
   document.getElementById('delete-col-btn')?.addEventListener('click', deleteSelectedColumn);
 
+  // AI Panel toggle (unified mobile-style behavior for all screen sizes)
   document.getElementById('toggle-ai-panel')?.addEventListener('click', () => {
     const aiPanel = document.getElementById('ai-panel');
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
     if (!aiPanel) return;
-    if (isMobile) {
-      const opened = aiPanel.classList.toggle('open');
-      document.body.classList.toggle('modal-open', opened);
-      const fab = document.getElementById('mobile-chat-toggle');
-      if (fab) fab.classList.toggle('hidden', opened);
-      aiPanel.setAttribute('aria-hidden', opened ? 'false' : 'true');
+    
+    if (aiPanel.classList.contains('open')) {
+      closeAIPanel();
     } else {
-      const nextDisplay = aiPanel.style.display === 'none' ? 'flex' : 'none';
-      aiPanel.style.display = nextDisplay;
-      aiPanel.setAttribute('aria-hidden', nextDisplay === 'none' ? 'true' : 'false');
+      openAIPanel();
     }
   });
 
-  // Mobile floating chat button
-  document.getElementById('mobile-chat-toggle')?.addEventListener('click', () => {
-    const aiPanel = document.getElementById('ai-panel');
-    if (!aiPanel) return;
-    const opened = aiPanel.classList.toggle('open');
-    document.body.classList.toggle('modal-open', opened);
-    const fab = document.getElementById('mobile-chat-toggle');
-    if (fab) fab.classList.toggle('hidden', opened);
-    aiPanel.setAttribute('aria-hidden', opened ? 'false' : 'true');
-    if (opened) document.getElementById('message-input')?.focus();
-  });
-
-  // Ribbon "Open Chat" button
-  document.getElementById('open-chat-btn')?.addEventListener('click', () => {
-    const aiPanel = document.getElementById('ai-panel');
-    if (!aiPanel) return;
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    if (isMobile) {
-      aiPanel.classList.add('open');
-      document.body.classList.add('modal-open');
-      const fab = document.getElementById('mobile-chat-toggle');
-      if (fab) fab.classList.add('hidden');
-      aiPanel.setAttribute('aria-hidden', 'false');
-    } else {
-      aiPanel.style.display = 'flex';
-      aiPanel.setAttribute('aria-hidden', 'false');
-    }
+  // Chat toggle FAB (unified for all screen sizes)
+  document.getElementById('chat-toggle')?.addEventListener('click', () => {
+    openAIPanel();
     document.getElementById('message-input')?.focus();
   });
+
+  // Ribbon "Open Chat" button (unified behavior)
+  document.getElementById('open-chat-btn')?.addEventListener('click', () => {
+    openAIPanel();
+    document.getElementById('message-input')?.focus();
+  });
+
+  // Backdrop click handler to close panel
+  document.getElementById('ai-panel-backdrop')?.addEventListener('click', closeAIPanel);
 
   document.getElementById('view-tasks')?.addEventListener('click', () => {
     document.getElementById('task-modal').classList.remove('hidden');
