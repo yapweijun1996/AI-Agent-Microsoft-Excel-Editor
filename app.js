@@ -25,6 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const undoStack = [];
       const redoStack = [];
 
+      // Track manual column widths and row heights
+      let colWidths = Array(cols).fill(null);
+      let rowHeights = Array(rows).fill(null);
+
     // Error map: key "r,c" -> message
     const errMap = new Map();
 
@@ -173,26 +177,126 @@ document.addEventListener('DOMContentLoaded', () => {
       el.style.fontStyle = cell.italic ? 'italic' : '';
       el.style.backgroundColor = cell.bgColor || '';
     }
+
+    function syncSizeArrays(){
+      while(colWidths.length < cols) colWidths.push(null);
+      if(colWidths.length > cols) colWidths.length = cols;
+      while(rowHeights.length < rows) rowHeights.push(null);
+      if(rowHeights.length > rows) rowHeights.length = rows;
+    }
+
+    function applyColWidth(c, w){
+      const header = thead.querySelectorAll('th')[c+1];
+      if(header){
+        header.style.width = w + 'px';
+        header.style.maxWidth = w + 'px';
+      }
+      const cells = tbody.querySelectorAll(`td:nth-child(${c+2})`);
+      cells.forEach(td=>{ td.style.width = w + 'px'; td.style.maxWidth = w + 'px'; });
+    }
+
+    function applyRowHeight(r, h){
+      const tr = tbody.querySelectorAll('tr')[r];
+      if(tr){
+        tr.style.height = h + 'px';
+        const th = tr.querySelector('th');
+        if(th) th.style.height = h + 'px';
+        tr.querySelectorAll('td').forEach(td=>{
+          td.style.height = h + 'px';
+          const div = td.firstElementChild;
+          if(div) div.style.height = h + 'px';
+        });
+      }
+    }
+
+    let resizingCol = null, startX = 0, startWidth = 0;
+    function startColResize(e){
+      e.preventDefault();
+      resizingCol = parseInt(e.target.dataset.c,10);
+      startX = e.clientX;
+      const th = thead.querySelectorAll('th')[resizingCol+1];
+      startWidth = th.offsetWidth;
+      document.addEventListener('mousemove', onColResize);
+      document.addEventListener('mouseup', stopColResize);
+    }
+    function onColResize(e){
+      if(resizingCol===null) return;
+      const delta = e.clientX - startX;
+      const newW = Math.max(40, startWidth + delta);
+      colWidths[resizingCol] = newW;
+      applyColWidth(resizingCol, newW);
+    }
+    function stopColResize(){
+      document.removeEventListener('mousemove', onColResize);
+      document.removeEventListener('mouseup', stopColResize);
+      resizingCol = null;
+    }
+
+    let resizingRow = null, startY = 0, startHeight = 0;
+    function startRowResize(e){
+      e.preventDefault();
+      resizingRow = parseInt(e.target.dataset.r,10);
+      startY = e.clientY;
+      const tr = tbody.querySelectorAll('tr')[resizingRow];
+      startHeight = tr.offsetHeight;
+      document.addEventListener('mousemove', onRowResize);
+      document.addEventListener('mouseup', stopRowResize);
+    }
+    function onRowResize(e){
+      if(resizingRow===null) return;
+      const delta = e.clientY - startY;
+      const newH = Math.max(24, startHeight + delta);
+      rowHeights[resizingRow] = newH;
+      applyRowHeight(resizingRow, newH);
+    }
+    function stopRowResize(){
+      document.removeEventListener('mousemove', onRowResize);
+      document.removeEventListener('mouseup', stopRowResize);
+      resizingRow = null;
+    }
     function renderHeader(){
+      syncSizeArrays();
       const tr = document.createElement('tr');
       tr.appendChild(document.createElement('th')); // corner
       for(let c=0;c<cols;c++){
         const th = document.createElement('th');
         th.textContent = colLabel(c);
+        if(colWidths[c]!=null){
+          th.style.width = colWidths[c] + 'px';
+          th.style.maxWidth = colWidths[c] + 'px';
+        }
+        const handle = document.createElement('div');
+        handle.className = 'col-resizer';
+        handle.dataset.c = c;
+        handle.addEventListener('mousedown', startColResize);
+        th.appendChild(handle);
         tr.appendChild(th);
       }
       thead.innerHTML='';
       thead.appendChild(tr);
     }
     function renderBody(){
+      syncSizeArrays();
       tbody.innerHTML='';
       for(let r=0;r<rows;r++){
         const tr = document.createElement('tr');
+        if(rowHeights[r]!=null) tr.style.height = rowHeights[r] + 'px';
         const rowTh = document.createElement('th');
         rowTh.textContent = r+1;
+        if(rowHeights[r]!=null) rowTh.style.height = rowHeights[r] + 'px';
+        const rHandle = document.createElement('div');
+        rHandle.className = 'row-resizer';
+        rHandle.dataset.r = r;
+        rHandle.addEventListener('mousedown', startRowResize);
+        rowTh.appendChild(rHandle);
         tr.appendChild(rowTh);
         for(let c=0;c<cols;c++){
           const td = document.createElement('td');
+          if(colWidths[c]!=null){
+            td.style.width = colWidths[c] + 'px';
+            td.style.maxWidth = colWidths[c] + 'px';
+          }
+          if(rowHeights[r]!=null) td.style.height = rowHeights[r] + 'px';
           const div = document.createElement('div');
             div.className='cell';
             div.contentEditable = true;
@@ -200,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.dataset.c = c;
             div.textContent = displayValue(r,c);
             applyCellStyles(div, data[r][c]);
+            if(rowHeights[r]!=null) div.style.height = rowHeights[r] + 'px';
             div.addEventListener('input', onEdit);
             div.addEventListener('blur', onBlurNormalize);
             div.addEventListener('focus', onCellFocus);
@@ -540,21 +645,25 @@ document.addEventListener('DOMContentLoaded', () => {
         case 'addRow':
           data.push(Array.from({length:cols},()=>createCell()));
           rows++;
+          rowHeights.push(null);
           break;
         case 'addCol':
           for(const r of data) r.push(createCell());
           cols++;
+          colWidths.push(null);
           break;
         case 'delRow':
           if(rows>1){
             data.pop();
             rows--;
+            rowHeights.pop();
           }
           break;
         case 'delCol':
           if(cols>1){
             for(const r of data) r.pop();
             cols--;
+            colWidths.pop();
           }
           break;
       }
@@ -569,6 +678,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('delCol').addEventListener('click', () => modifyGrid('delCol'));
     document.getElementById('newSheet').onclick = ()=>{
       rows = 30; cols = 12; data = createEmpty(rows, cols);
+      colWidths = Array(cols).fill(null);
+      rowHeights = Array(rows).fill(null);
       currentWB = null; pickerWrap.classList.remove('active'); sheetSelect.innerHTML=''; fileInfo.textContent = '';
       renderHeader(); renderBody(); recalc();
     };
@@ -610,6 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
       rows = arr.length;
       cols = Math.max(...arr.map(r=>r.length));
       data = createEmpty(rows, cols);
+      colWidths = Array(cols).fill(null);
+      rowHeights = Array(rows).fill(null);
       for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) data[r][c].value = arr[r][c]??'';
       renderHeader(); renderBody(); recalc();
     }
@@ -764,8 +877,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Approximate table cell font (inherits from body)
       const bodyStyle = getComputedStyle(document.body);
       ctx.font = `${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
-      const headerCells = thead.querySelectorAll('th');
       for(let c=0;c<cols;c++){
+        if(colWidths[c]!=null){
+          applyColWidth(c, colWidths[c]);
+          continue;
+        }
         let w = ctx.measureText(colLabel(c)).width + 24;
         for(let r=0;r<Math.min(rows, 50); r++){ // sample first 50 rows for speed
           const txt = String(displayValue(r,c));
@@ -773,13 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (w >= maxWidth) break;
         }
         const finalW = Math.min(Math.max(80, Math.ceil(w)), maxWidth); // clamp 80..maxWidth
-        // nth-child: +2 because first column is row header <th>
-        const tdList = tbody.querySelectorAll(`td:nth-child(${c+2})`);
-        tdList.forEach(td => { td.style.width = finalW + 'px'; td.style.maxWidth = finalW + 'px'; });
-        if (headerCells[c+1]){
-          headerCells[c+1].style.width = finalW + 'px';
-          headerCells[c+1].style.maxWidth = finalW + 'px';
-        }
+        applyColWidth(c, finalW);
       }
     }
 
