@@ -1,5 +1,9 @@
 # Excel Web Application - Development Plan
 
+## Current Prototype
+
+The repository currently contains a standalone `index.html` file that implements a basic spreadsheet editor in vanilla JavaScript. It supports adding or removing rows and columns, importing or exporting CSV/XLSX files, basic formula evaluation, and a small self-test routine. This document outlines how to evolve that prototype into a full-featured application.
+
 ## 1. Project Overview
 
 This document outlines a comprehensive plan for rebuilding the Excel web application. The goal is to create a modern, feature-rich, and scalable spreadsheet application using a modern technology stack and best practices.
