@@ -32,8 +32,11 @@
   .hint{opacity:.8}
   .danger{color:#ff9da6}
   .ok{color:#9dffb3}
-  .sheetPicker{display:none;gap:.5rem;align-items:center}
-  .sheetPicker.active{display:flex}
+  .sheetTabs{display:flex;gap:.25rem;align-items:center}
+  .sheetTab{padding:.25rem .6rem;background:#1a2450;border:1px solid #2c3a74;border-radius:10px 10px 0 0;cursor:pointer;position:relative;}
+  .sheetTab.active{background:#21306b}
+  .sheetTab .close{margin-left:.5rem;cursor:pointer}
+  .sheetTab.add{font-weight:600}
   .debug{margin-top:10px;background:#0a122e;border:1px solid #1b254b;border-radius:12px;padding:8px;max-height:20vh;overflow:auto}
   .debug h3{margin:0 0 6px 0;font-size:12px;color:#bcd}
   .debug pre{margin:0;font-size:12px;white-space:pre-wrap;word-break:break-word}
