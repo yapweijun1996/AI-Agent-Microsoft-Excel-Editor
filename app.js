@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let colWidths = sheets[0].colWidths, rowHeights = sheets[0].rowHeights;
       let copyOrigin = null; // track source cell for copy/paste
       let activeCell = {r:0, c:0};
+      let lastHeader = {r:-1, c:-1};
       const undoStack = [];
       const redoStack = [];
 
@@ -412,6 +413,23 @@ document.addEventListener('DOMContentLoaded', () => {
         formulaBar.dataset.r = r;
         formulaBar.dataset.c = c;
         if(fillColorInput) fillColorInput.value = cell.bgColor || '#ffffff';
+
+        // Highlight row/column headers for the active cell
+        if (typeof lastHeader !== 'undefined') {
+          if (lastHeader.r >= 0) {
+            const prevRowTh = tbody.querySelectorAll('tr')[lastHeader.r]?.querySelector('th');
+            if (prevRowTh) prevRowTh.classList.remove('active');
+          }
+          if (lastHeader.c >= 0) {
+            const prevColTh = thead.querySelectorAll('th')[lastHeader.c+1];
+            if (prevColTh) prevColTh.classList.remove('active');
+          }
+        }
+        const rowTh = tbody.querySelectorAll('tr')[r]?.querySelector('th');
+        if (rowTh) rowTh.classList.add('active');
+        const colTh = thead.querySelectorAll('th')[c+1];
+        if (colTh) colTh.classList.add('active');
+        lastHeader = { r, c };
       }
       function getCaret() {
         const el = document.activeElement;
@@ -1071,6 +1089,39 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInfo.textContent = results.join(' | ');
       log('Test results:', results.join(' | '));
     };
+
+    // ===== Dropdown menus (Export, Advanced) =====
+    (function setupMenus(){
+      const menus = Array.from(document.querySelectorAll('.menu'));
+      const closeAll = ()=>{
+        menus.forEach(m=>{
+          m.classList.remove('open');
+          const t = m.querySelector('.menu-trigger');
+          if(t) t.setAttribute('aria-expanded','false');
+        });
+      };
+      menus.forEach(m=>{
+        const trigger = m.querySelector('.menu-trigger');
+        const items = m.querySelector('.menu-items');
+        if(!trigger || !items) return;
+        trigger.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const wasOpen = m.classList.contains('open');
+          closeAll();
+          m.classList.toggle('open', !wasOpen);
+          trigger.setAttribute('aria-expanded', (!wasOpen).toString());
+        });
+        items.addEventListener('click', (e)=>{
+          if(e.target.closest('button')) closeAll();
+        });
+      });
+      document.addEventListener('click', (e)=>{
+        if(!e.target.closest('.menu')) closeAll();
+      });
+      document.addEventListener('keydown', (e)=>{
+        if(e.key==='Escape') closeAll();
+      });
+    })();
 
     // ===== Init =====
     renderHeader(); renderBody(); recalc(); renderTabs();

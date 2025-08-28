@@ -20,7 +20,7 @@
   th{padding:.4rem .5rem;text-align:center}
   td{padding:0}
   td .cell{padding:.45rem .5rem;outline:none;min-height:32px}
-  td .cell:focus{background:var(--sel)}
+  td .cell:focus{background:var(--sel);box-shadow:inset 0 0 0 2px var(--accent);outline:none}
   tr:nth-child(even) td{background:var(--grid)}
   tr:nth-child(odd) td{background:#0e1430}
   .cell.err{background:var(--err)!important;border:1px solid var(--errBorder)}
@@ -43,3 +43,34 @@
   .debug .row{opacity:.9}
   @media (max-width:900px){th, td{min-width:80px} header{gap:.4rem} header h1{display:none}}
 
+
+/* --- Toolbar grouping and dropdown menus --- */
+header .group{display:inline-flex;gap:.5rem;align-items:center}
+.toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-left:auto;align-items:center}
+.menu{position:relative;display:inline-block}
+.menu .menu-trigger{position:relative;padding-right:1.6rem}
+.menu .menu-items{
+  position:absolute;top:calc(100% + 6px);left:0;
+  background:#0f1734;border:1px solid #1b254b;border-radius:12px;
+  min-width:180px;padding:.35rem;display:none;z-index:50;
+  box-shadow:0 8px 24px rgba(0,0,0,.35)
+}
+.menu .menu-items.right{right:0;left:auto}
+.menu.open .menu-items{display:block}
+/* pointer-friendly fallback */
+@media(hover:hover){.menu:hover .menu-items{display:block}}
+.menu .menu-items button{
+  display:block;width:100%;text-align:left;
+  background:transparent;border:0;border-radius:8px;
+  padding:.5rem .6rem;color:var(--text)
+}
+.menu .menu-items button:hover{background:#21306b}
+
+/* --- Active header highlighting and hover feedback --- */
+thead th.active, tbody th.active{
+  background: var(--sel);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 0 var(--accent), inset 2px 0 0 0 var(--accent);
+}
+thead th:hover, tbody th:hover{ filter: brightness(1.05); }
+td .cell:hover{ background: rgba(94,160,255,.08); }
