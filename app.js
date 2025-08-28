@@ -2,19 +2,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridEl = document.getElementById('grid');
     const thead = gridEl.querySelector('thead');
     const tbody = gridEl.querySelector('tbody');
-    const calcState = document.getElementById('calcState');
-    const fileInfo = document.getElementById('fileInfo');
-    const xlsxState = document.getElementById('xlsxState');
-    const pickerWrap = document.getElementById('sheetPicker');
-    const sheetSelect = document.getElementById('sheetSelect');
-    const saveXLSXBtn = document.getElementById('saveXLSX');
-    const debugBox = document.getElementById('debugBox');
-    const debugOut = document.getElementById('debugOut');
+      const calcState = document.getElementById('calcState');
+      const fileInfo = document.getElementById('fileInfo');
+      const xlsxState = document.getElementById('xlsxState');
+      const pickerWrap = document.getElementById('sheetPicker');
+      const sheetSelect = document.getElementById('sheetSelect');
+      const saveXLSXBtn = document.getElementById('saveXLSX');
+      const debugBox = document.getElementById('debugBox');
+      const debugOut = document.getElementById('debugOut');
+      const formulaBar = document.getElementById('formulaBar');
 
     // In-memory sheet data model
-    let rows = 30, cols = 12;
-    let data = createEmpty(rows, cols); // stores raw strings (including formulas)
-    let copyOrigin = null; // track source cell for copy/paste
+      let rows = 30, cols = 12;
+      let data = createEmpty(rows, cols); // stores raw strings (including formulas)
+      let copyOrigin = null; // track source cell for copy/paste
+      let activeCell = {r:0, c:0};
 
     // Error map: key "r,c" -> message
     const errMap = new Map();
@@ -151,32 +153,47 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let c=0;c<cols;c++){
           const td = document.createElement('td');
           const div = document.createElement('div');
-          div.className='cell';
-          div.contentEditable = true;
-          div.dataset.r = r;
-          div.dataset.c = c;
-          div.textContent = displayValue(r,c);
-          div.addEventListener('input', onEdit);
-          div.addEventListener('blur', onBlurNormalize);
-          td.appendChild(div);
-          tr.appendChild(td);
+            div.className='cell';
+            div.contentEditable = true;
+            div.dataset.r = r;
+            div.dataset.c = c;
+            div.textContent = displayValue(r,c);
+            div.addEventListener('input', onEdit);
+            div.addEventListener('blur', onBlurNormalize);
+            div.addEventListener('focus', onCellFocus);
+            td.appendChild(div);
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
         }
-        tbody.appendChild(tr);
+        applyErrorDecorations();
+        // initial autofit for the newly rendered table
+        autofitColumns();
+        setActiveCell(activeCell.r, activeCell.c);
       }
-      applyErrorDecorations();
-      // initial autofit for the newly rendered table
-      autofitColumns();
-    }
 
-    // Caret helpers for flicker-free refresh
-    function getCaret() {
-      const el = document.activeElement;
-      if (!el || !el.classList || !el.classList.contains('cell')) return null;
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return null;
-      const range = sel.getRangeAt(0);
-      return { el, r: +el.dataset.r, c: +el.dataset.c, start: range.startOffset, end: range.endOffset };
-    }
+      // Caret helpers for flicker-free refresh
+      function setActiveCell(r,c){
+        r = Math.max(0, Math.min(rows-1, r));
+        c = Math.max(0, Math.min(cols-1, c));
+        activeCell = {r,c};
+        formulaBar.value = rawValue(r,c);
+        formulaBar.dataset.r = r;
+        formulaBar.dataset.c = c;
+      }
+      function getCaret() {
+        const el = document.activeElement;
+        if (!el || !el.classList || !el.classList.contains('cell')) return null;
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0){
+          setActiveCell(+el.dataset.r, +el.dataset.c);
+          return null;
+        }
+        const range = sel.getRangeAt(0);
+        const r = +el.dataset.r, c = +el.dataset.c;
+        setActiveCell(r,c);
+        return { el, r, c, start: range.startOffset, end: range.endOffset };
+      }
     function setCaret(snap) {
       if (!snap) return;
       const { r, c, start, end } = snap;
@@ -191,18 +208,18 @@ document.addEventListener('DOMContentLoaded', () => {
       sel.removeAllRanges(); sel.addRange(range);
     }
 
-    function refreshAllDisplay(){
-      const snap = getCaret();
-      const active = document.activeElement;
-      for(const el of tbody.querySelectorAll('.cell')){
-        if (el === active) continue; // keep user input while editing
-        const r = +el.dataset.r, c = +el.dataset.c;
-        const newText = displayValue(r,c);
-        if (el.textContent !== newText) el.textContent = newText;
+      function refreshAllDisplay(){
+        const snap = getCaret();
+        const active = document.activeElement;
+        for(const el of tbody.querySelectorAll('.cell')){
+          const r = +el.dataset.r, c = +el.dataset.c;
+          if (el === active || (active === formulaBar && activeCell.r === r && activeCell.c === c)) continue; // keep user input while editing
+          const newText = displayValue(r,c);
+          if (el.textContent !== newText) el.textContent = newText;
+        }
+        applyErrorDecorations();
+        setCaret(snap);
       }
-      applyErrorDecorations();
-      setCaret(snap);
-    }
 
     // Formula evaluation (simple & safe-ish)
     function rawValue(r,c){ return data[r]?.[c] ?? ''; }
@@ -388,19 +405,35 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Editing
-    function onEdit(e){
-      const el = e.currentTarget;
-      const r = +el.dataset.r, c = +el.dataset.c;
-      data[r][c] = el.textContent;
-      recalc();
-    }
-    function onBlurNormalize(e){
-      const el = e.currentTarget;
-      // keep "=   " while user is composing a formula
-      if (/^=\s*$/.test(el.textContent)) return;
-      el.textContent = el.textContent.replace(/\s+/g,' ').trim();
-    }
+      // Editing
+      function onCellFocus(e){
+        const el = e.currentTarget;
+        setActiveCell(+el.dataset.r, +el.dataset.c);
+      }
+      function onEdit(e){
+        const el = e.currentTarget;
+        const r = +el.dataset.r, c = +el.dataset.c;
+        data[r][c] = el.textContent;
+        if(document.activeElement === el){
+          formulaBar.value = el.textContent;
+        }
+        recalc();
+      }
+      function onBlurNormalize(e){
+        const el = e.currentTarget;
+        // keep "=   " while user is composing a formula
+        if (/^=\s*$/.test(el.textContent)) return;
+        el.textContent = el.textContent.replace(/\s+/g,' ').trim();
+      }
+
+      formulaBar.addEventListener('input', () => {
+        const r = +formulaBar.dataset.r, c = +formulaBar.dataset.c;
+        if (isNaN(r) || isNaN(c)) return;
+        data[r][c] = formulaBar.value;
+        const cell = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        if (cell && document.activeElement !== cell) cell.textContent = formulaBar.value;
+        recalc();
+      });
 
     // Throttled recalc (avoid flood while typing quickly)
     let recalcTimer = 0;
@@ -564,12 +597,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ===== Keyboard navigation (Enter/Shift+Enter, Tab/Shift+Tab, arrows) =====
-    function focusCell(r,c){
-      r = Math.max(0, Math.min(rows-1, r));
-      c = Math.max(0, Math.min(cols-1, c));
-      const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-      if (el){ el.focus(); placeCaretEnd(el); }
-    }
+      function focusCell(r,c){
+        r = Math.max(0, Math.min(rows-1, r));
+        c = Math.max(0, Math.min(cols-1, c));
+        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        if (el){ el.focus(); placeCaretEnd(el); }
+        setActiveCell(r,c);
+      }
     function placeCaretEnd(el){
       const range = document.createRange();
       const node = el.firstChild || el;

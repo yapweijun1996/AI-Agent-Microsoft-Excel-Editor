@@ -9,6 +9,7 @@
   .btn-file{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:.5rem}
   .btn-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
   .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-left:auto}
+  #formulaBar{flex:1;background:#1a2450;border:1px solid #2c3a74;border-radius:10px;padding:.5rem;color:var(--text)}
   .wrap{padding:12px}
   .sheet{background:var(--panel);border:1px solid #1b254b;border-radius:14px;overflow:auto;max-height:70vh;box-shadow:0 10px 30px rgba(0,0,0,.25)}
   table{border-collapse:separate;border-spacing:0;min-width:720px}
