@@ -475,7 +475,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Formula evaluation (simple & safe-ish)
     function rawValue(r,c){ return data[r]?.[c]?.value ?? ''; }
     const VALUE_ERROR = {error:'#VALUE!'};
-    function isErr(v){ return v === VALUE_ERROR; }
+    const CIRC_ERROR = {error:'#CIRC!'};
+    function isErr(v){ return v && typeof v === 'object' && 'error' in v; }
     function numeric(v){
       if(isErr(v)) return v;
       const n = Number(v);
@@ -552,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return tokens;
     }
 
-    function evaluateFormula(expr){
+    function evaluateFormula(expr, visited){
       const tokens=tokenize(expr.trim()); let i=0;
       function peek(){ return tokens[i]; }
       function consume(type){ const t=tokens[i]; if(!t||t.type!==type) throw new Error('Expected '+type); i++; return t; }
@@ -587,12 +588,12 @@ document.addEventListener('DOMContentLoaded', () => {
       function parsePrimary(){
         const t=peek(); if(!t) throw new Error('Unexpected end');
         if(t.type==='num'){ consume('num'); return t.value; }
-        if(t.type==='cell'){ consume('cell'); return numeric(valueAt(t.pos.r,t.pos.c)); }
+        if(t.type==='cell'){ consume('cell'); return numeric(valueAt(t.pos.r,t.pos.c, visited)); }
         if(t.type==='range'){
           consume('range'); const out=[];
           const r1=Math.min(t.start.r,t.end.r), r2=Math.max(t.start.r,t.end.r);
           const c1=Math.min(t.start.c,t.end.c), c2=Math.max(t.start.c,t.end.c);
-          for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) out.push(numeric(valueAt(r,c)));
+          for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) out.push(numeric(valueAt(r,c, visited)));
           return out;
         }
         if(t.type==='id') return parseFunctionCall();
@@ -614,22 +615,36 @@ document.addEventListener('DOMContentLoaded', () => {
     function setError(r,c,msg){ errMap.set(`${r},${c}`, msg); }
     function clearError(r,c){ errMap.delete(`${r},${c}`); }
 
-    function valueAt(r,c){
-      const raw = rawValue(r,c);
-      if(typeof raw !== 'string') { clearError(r,c); return raw ?? ''; }
-      if(isBlankFormula(raw)) { clearError(r,c); return raw; }
-      if(raw.startsWith('=')){
-        try{
-          const v = evaluateFormula(raw.slice(1));
-          clearError(r,c);
-          return v;
-        }catch(e){
-          setError(r,c, String(e.message||e));
-          return VALUE_ERROR;
-        }
+    function valueAt(r,c, visited){
+      const top = !visited;
+      visited = visited || new Set();
+      const key = `${r},${c}`;
+      if(visited.has(key)){
+        setError(r,c, '#CIRC!');
+        return CIRC_ERROR;
       }
-      clearError(r,c);
-      return raw;
+      visited.add(key);
+      try{
+        const raw = rawValue(r,c);
+        if(typeof raw !== 'string') { clearError(r,c); return raw ?? ''; }
+        if(isBlankFormula(raw)) { clearError(r,c); return raw; }
+        if(raw.startsWith('=')){
+          try{
+            const v = evaluateFormula(raw.slice(1), visited);
+            if(isErr(v)) setError(r,c, v.error);
+            else clearError(r,c);
+            return v;
+          }catch(e){
+            setError(r,c, String(e.message||e));
+            return VALUE_ERROR;
+          }
+        }
+        clearError(r,c);
+        return raw;
+      } finally {
+        visited.delete(key);
+        if(top) visited.clear();
+      }
     }
     function displayValue(r,c){
       const raw = rawValue(r,c);
