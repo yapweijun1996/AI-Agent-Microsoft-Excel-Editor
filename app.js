@@ -14,12 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const boldBtn = document.getElementById('boldBtn');
       const italicBtn = document.getElementById('italicBtn');
       const fillColorInput = document.getElementById('fillColor');
+      const undoBtn = document.getElementById('undoBtn');
+      const redoBtn = document.getElementById('redoBtn');
 
     // In-memory sheet data model
       let rows = 30, cols = 12;
       let data = createEmpty(rows, cols); // stores { value, bold, italic, bgColor }
       let copyOrigin = null; // track source cell for copy/paste
       let activeCell = {r:0, c:0};
+      const undoStack = [];
+      const redoStack = [];
 
     // Error map: key "r,c" -> message
     const errMap = new Map();
@@ -133,6 +137,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const col = p.absCol ? p.c : p.c + dc;
         return (p.absCol?'$':'') + colLabel(col) + (p.absRow?'$':'') + (row+1);
       }
+    }
+
+    function snapshot(){
+      return { data: data.map(r=>r.map(cell=>({...cell}))), rows, cols };
+    }
+    function pushUndo(){
+      undoStack.push(snapshot());
+      redoStack.length = 0;
+    }
+    function restore(state){
+      data = state.data.map(r=>r.map(cell=>({...cell})));
+      rows = state.rows;
+      cols = state.cols;
+      renderHeader();
+      renderBody();
+      recalc();
+    }
+    function undo(){
+      if(!undoStack.length) return;
+      redoStack.push(snapshot());
+      const prev = undoStack.pop();
+      restore(prev);
+    }
+    function redo(){
+      if(!redoStack.length) return;
+      undoStack.push(snapshot());
+      const next = redoStack.pop();
+      restore(next);
     }
 
     // Rendering
@@ -426,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function onEdit(e){
         const el = e.currentTarget;
         const r = +el.dataset.r, c = +el.dataset.c;
+        pushUndo();
         data[r][c].value = el.textContent;
         if(document.activeElement === el){
           formulaBar.value = el.textContent;
@@ -442,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
       formulaBar.addEventListener('input', () => {
         const r = +formulaBar.dataset.r, c = +formulaBar.dataset.c;
         if (isNaN(r) || isNaN(c)) return;
+        pushUndo();
         data[r][c].value = formulaBar.value;
         const cell = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
         if (cell && document.activeElement !== cell) cell.textContent = formulaBar.value;
@@ -470,6 +504,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if(el) applyCellStyles(el, cell);
       });
 
+      undoBtn?.addEventListener('click', undo);
+      redoBtn?.addEventListener('click', redo);
+      document.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && key === 'z') {
+          e.preventDefault();
+          undo();
+        } else if ((e.ctrlKey || e.metaKey) && key === 'y') {
+          e.preventDefault();
+          redo();
+        }
+      });
+
     // Throttled recalc (avoid flood while typing quickly)
     let recalcTimer = 0;
     function recalc(){
@@ -488,6 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Row/Col ops
     function modifyGrid(type){
+      pushUndo();
       switch(type){
         case 'addRow':
           data.push(Array.from({length:cols},()=>createCell()));
@@ -689,6 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text');
       if (!text) return;
+      pushUndo();
       const rowsClip = text.replace(/\r/g,'').split('\n').map(r=>r.split('\t'));
       const r0 = +el.dataset.r, c0 = +el.dataset.c;
       const dr = copyOrigin ? r0 - copyOrigin.r : 0;
