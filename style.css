@@ -46,12 +46,18 @@
 /* Medium mobile devices - 600px and below */
 @media (max-width:600px){
   body{font-size:13px}
-  header{padding:.5rem;flex-wrap:wrap;gap:.3rem}
-  header h1{display:none}
-  header .group{gap:.3rem}
+  header{padding:.5rem;flex-direction:column;align-items:stretch}
+  header h1{font-size:14px;margin:0}
+  
+  /* Show hamburger menu */
+  .hamburger{display:flex}
+  .header-nav{display:none;flex-direction:column;gap:.5rem;margin-top:.5rem;padding-top:.5rem;border-top:1px solid #1b254b}
+  .header-nav.open{display:flex}
+  
+  header .group{gap:.3rem;justify-content:center;flex-wrap:wrap;margin:.25rem 0}
   button, .btn-file, select, input[type="color"]{padding:.4rem .6rem;font-size:13px;border-radius:8px}
-  #formulaBar{padding:.4rem;font-size:13px;min-width:120px}
-  .toolbar{gap:.3rem;margin:0;width:100%;justify-content:space-between}
+  #formulaBar{padding:.4rem;font-size:13px;width:100%;margin:.25rem 0}
+  .toolbar{gap:.3rem;justify-content:center;flex-wrap:wrap;margin:.25rem 0}
   .wrap{padding:8px}
   .sheet{border-radius:10px;max-height:60vh}
   th, td{min-width:70px;font-size:13px}
@@ -59,7 +65,7 @@
   td .cell{padding:.35rem .4rem;min-height:28px;font-size:13px}
   .status{gap:.6rem;font-size:12px;margin-top:8px}
   .status .pill{padding:.15rem .4rem;font-size:12px}
-  .sheetTabs{gap:.2rem}
+  .sheetTabs{gap:.2rem;justify-content:center;flex-wrap:wrap}
   .sheetTab{padding:.2rem .5rem;font-size:12px;border-radius:8px 8px 0 0}
   .debug{padding:6px;max-height:15vh}
   .debug h3{font-size:11px}
@@ -72,10 +78,17 @@
 @media (max-width:400px){
   body{font-size:12px}
   header{padding:.4rem;flex-direction:column;align-items:stretch}
-  header .group{justify-content:center;flex-wrap:wrap}
+  header h1{font-size:13px;margin:0}
+  
+  /* Hamburger menu styles for smallest screens */
+  .hamburger{display:flex;width:26px;height:26px}
+  .hamburger span{height:2px;margin:2px 0}
+  .header-nav{gap:.4rem;margin-top:.4rem;padding-top:.4rem}
+  
+  header .group{justify-content:center;flex-wrap:wrap;margin:.2rem 0}
   button, .btn-file, select, input[type="color"]{padding:.3rem .5rem;font-size:12px;border-radius:6px}
-  #formulaBar{padding:.3rem;font-size:12px;min-width:100px;width:100%;margin:.2rem 0}
-  .toolbar{flex-direction:column;gap:.2rem;align-items:stretch}
+  #formulaBar{padding:.3rem;font-size:12px;width:100%;margin:.2rem 0}
+  .toolbar{gap:.2rem;justify-content:center;flex-wrap:wrap;margin:.2rem 0}
   .wrap{padding:4px}
   .sheet{border-radius:8px;max-height:50vh}
   table{min-width:300px}
@@ -94,6 +107,17 @@
   .col-resizer, .row-resizer{display:none} /* Hide resizers on very small screens */
 }
 
+
+/* --- Hamburger menu and header navigation --- */
+.header-main{display:flex;justify-content:space-between;align-items:center;width:100%}
+.hamburger{display:none;flex-direction:column;justify-content:center;width:30px;height:30px;background:transparent;border:0;cursor:pointer;padding:0}
+.hamburger span{display:block;height:3px;width:100%;background:var(--text);margin:3px 0;transition:all 0.3s ease;border-radius:2px}
+.hamburger.active span:nth-child(1){transform:rotate(45deg) translate(6px, 6px)}
+.hamburger.active span:nth-child(2){opacity:0}
+.hamburger.active span:nth-child(3){transform:rotate(-45deg) translate(6px, -6px)}
+
+.header-nav{display:flex;gap:.5rem;align-items:center;flex:1}
+.header-nav.open{display:flex}
 
 /* --- Toolbar grouping and dropdown menus --- */
 header .group{display:inline-flex;gap:.5rem;align-items:center}
