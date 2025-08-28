@@ -994,12 +994,13 @@ document.addEventListener('DOMContentLoaded', () => {
           data[r][c].value = newText;
           formulaBar.value = newText;
           
-          // Position cursor after the inserted reference
-          const newPos = range.startOffset + ref.length;
-          const newRange = document.createRange();
+          // Select the inserted reference so subsequent arrow presses replace it
+          const start = range.startOffset;
+          const end = start + ref.length;
           const textNode = el.firstChild || el;
-          newRange.setStart(textNode, Math.min(newPos, textNode.textContent?.length || 0));
-          newRange.setEnd(textNode, Math.min(newPos, textNode.textContent?.length || 0));
+          const newRange = document.createRange();
+          newRange.setStart(textNode, start);
+          newRange.setEnd(textNode, Math.min(end, textNode.textContent?.length || 0));
           selection.removeAllRanges();
           selection.addRange(newRange);
           
