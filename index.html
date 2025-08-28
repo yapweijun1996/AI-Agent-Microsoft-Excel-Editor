@@ -306,19 +306,22 @@
     function evaluateFormula(expr){
       const trimmed = expr.trim();
       if(trimmed==='') return '';
-      // Replace cell refs with numeric values
-      let e = trimmed.replace(/\b([A-Z]+[0-9]+)\b/gi, (m)=>{
-        const p = parseA1(m); return numeric(valueAt(p.r,p.c));
-      });
-      // Allow only numbers, ops, commas, parentheses, dots, spaces, and SUM calls
-      e = e.replace(/SUM\s*\(/gi, 'SUM(');
-      if(!/^[0-9+\-*/().,\sSUM:A-Z]+$/i.test(e)) throw new Error('Invalid characters in formula');
-      // Convert SUM(...) to helper
-      const js = e.replace(/SUM\s*\(([^()]*)\)/gi, (_,inner)=>{
-        const parts = inner.split(',').map(s=>s.trim()).filter(Boolean).map(tok=>/^[0-9.]+$/.test(tok) ? tok : JSON.stringify(tok));
+      // Normalize SUM spacing
+      let js = trimmed.replace(/SUM\s*\(/gi, 'SUM(');
+      // Convert SUM(...) to helper while keeping raw refs/ranges
+      js = js.replace(/SUM\s*\(([^()]*)\)/gi, (_,inner)=>{
+        const parts = inner.split(',').map(s=>s.trim()).filter(Boolean)
+          .map(tok=>/^[0-9.]+$/.test(tok) ? tok : JSON.stringify(tok));
         return `__SUM__([${parts.join(',')}])`;
       });
-      if(!/^[0-9+\-*/().,\s"':A-Za-z\[\]]+$/.test(js)) throw new Error('Unsafe formula');
+      // Replace standalone cell refs (skip quotes and A1:B2 ranges)
+      js = js.replace(/"[^"]*"|'[^']*'|(?<![A-Z0-9]:)\b([A-Z]+[0-9]+)\b(?!:[A-Z0-9])/gi,
+        (m,ref)=>{
+          if(!ref) return m;
+          const p = parseA1(ref);
+          return numeric(valueAt(p.r,p.c));
+        });
+      if(!/^[0-9+\-*/().,\s"':A-Za-z_\[\]]+$/.test(js)) throw new Error('Unsafe formula');
       const f = new Function('__SUM__', `return (${js});`);
       return f(sumFn);
     }
@@ -614,12 +617,16 @@
       // Existing Test 3: XLSX availability (no failure if offline)
       results.push((XLSXRef||window.XLSX) ? '✓ XLSX present' : '• XLSX not loaded (CSV still OK)');
 
-      // Added Test 4: SUM(range) evaluation
+      // Added Test 4: SUM(range & multi-range) evaluation
       rows=3; cols=3; data=createEmpty(rows,cols);
       data[0][0]='1'; data[0][1]='2'; data[1][0]='3'; data[1][1]='4';
+      data[0][2]='5'; data[1][2]='6';
       data[2][2]='=SUM(A1:B2)';
       const sumVal = valueAt(2,2);
-      results.push(sumVal===10 ? '✓ SUM(A1:B2) == 10' : `✗ SUM expected 10 got ${sumVal}`);
+      results.push(sumVal===10 ? '✓ SUM(A1:B2) == 10' : `✗ SUM(A1:B2) expected 10 got ${sumVal}`);
+      data[2][2]='=SUM(A1:B1,B2:C2)';
+      const sumVal2 = valueAt(2,2);
+      results.push(sumVal2===13 ? '✓ SUM(A1:B1,B2:C2) == 13' : `✗ SUM multi-range expected 13 got ${sumVal2}`);
 
       // Added Test 5: A1 parse + colLabel check
       const p = parseA1('AA10');
