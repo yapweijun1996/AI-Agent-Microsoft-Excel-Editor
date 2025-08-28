@@ -414,20 +414,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Row/Col ops
-    document.getElementById('addRow').onclick = ()=>{
-      data.push(Array.from({length:cols},()=>'')); rows++;
-      renderHeader(); renderBody(); // autofit inside renderBody
-    };
-    document.getElementById('addCol').onclick = ()=>{
-      for(const r of data) r.push('');
-      cols++; renderHeader(); renderBody();
-    };
-    document.getElementById('delRow').onclick = ()=>{
-      if(rows>1){ data.pop(); rows--; renderHeader(); renderBody(); }
-    };
-    document.getElementById('delCol').onclick = ()=>{
-      if(cols>1){ for(const r of data) r.pop(); cols--; renderHeader(); renderBody(); }
-    };
+    function modifyGrid(type){
+      switch(type){
+        case 'addRow':
+          data.push(Array.from({length:cols},()=>''));
+          rows++;
+          break;
+        case 'addCol':
+          for(const r of data) r.push('');
+          cols++;
+          break;
+        case 'delRow':
+          if(rows>1){
+            data.pop();
+            rows--;
+          }
+          break;
+        case 'delCol':
+          if(cols>1){
+            for(const r of data) r.pop();
+            cols--;
+          }
+          break;
+      }
+      renderHeader();
+      renderBody();
+      recalc();
+    }
+
+    document.getElementById('addRow').addEventListener('click', () => modifyGrid('addRow'));
+    document.getElementById('addCol').addEventListener('click', () => modifyGrid('addCol'));
+    document.getElementById('delRow').addEventListener('click', () => modifyGrid('delRow'));
+    document.getElementById('delCol').addEventListener('click', () => modifyGrid('delCol'));
     document.getElementById('newSheet').onclick = ()=>{
       rows = 30; cols = 12; data = createEmpty(rows, cols);
       currentWB = null; pickerWrap.classList.remove('active'); sheetSelect.innerHTML=''; fileInfo.textContent = '';
