@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mini Excel Editor — Debuggable Build (CSV/XLSX)</title>
+<link rel="shortcut icon" href="data:image/x-icon;," />
+<style>
+  :root { --bg:#0b1020; --panel:#121932; --grid:#0f1530; --muted:#9fb0d0; --text:#e8eeff; --accent:#5ea0ff; --sel:#24325e; --err:#3b0f1a; --errBorder:#ff5577; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Arial}
+  header{display:flex;gap:.5rem;align-items:center;padding:.75rem;border-bottom:1px solid #1b254b;background:linear-gradient(180deg,var(--panel),#0f1734)}
+  header h1{font-size:16px;margin:0 1rem 0 0;opacity:.9;font-weight:600;letter-spacing:.2px}
+  button, .btn-file, select{background:#1a2450;border:1px solid #2c3a74;border-radius:10px;padding:.5rem .75rem;color:var(--text);cursor:pointer}
+  button:hover,.btn-file:hover, select:hover{background:#21306b}
+  button[disabled]{opacity:.55;cursor:not-allowed}
+  .btn-file{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:.5rem}
+  .btn-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-left:auto}
+  .wrap{padding:12px}
+  .sheet{background:var(--panel);border:1px solid #1b254b;border-radius:14px;overflow:auto;max-height:70vh;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  table{border-collapse:separate;border-spacing:0;min-width:720px}
+  thead th{position:sticky;top:0;background:#121c3f;z-index:3;color:#cfe0ff;font-weight:600}
+  tbody th{position:sticky;left:0;background:#121c3f;z-index:2;color:#cfe0ff;font-weight:600}
+  th, td{border-right:1px solid #203066;border-bottom:1px solid #203066;min-width:100px}
+  thead th:first-child{left:0;z-index:4}
+  th{padding:.4rem .5rem;text-align:center}
+  td{padding:0}
+  td .cell{padding:.45rem .5rem;outline:none;min-height:32px}
+  td .cell:focus{background:var(--sel)}
+  tr:nth-child(even) td{background:var(--grid)}
+  tr:nth-child(odd) td{background:#0e1430}
+  .cell.err{background:var(--err)!important;border:1px solid var(--errBorder)}
+  .status{display:flex;gap:1rem;align-items:center;margin-top:10px;color:var(--muted);flex-wrap:wrap}
+  .status code{background:#0f1734;border:1px solid #1b254b;border-radius:8px;padding:.25rem .5rem;color:#bfe}
+  .pill{border:1px solid #2a3b76;border-radius:999px;padding:.2rem .5rem}
+  .hint{opacity:.8}
+  .danger{color:#ff9da6}
+  .ok{color:#9dffb3}
+  .sheetPicker{display:none;gap:.5rem;align-items:center}
+  .sheetPicker.active{display:flex}
+  .debug{margin-top:10px;background:#0a122e;border:1px solid #1b254b;border-radius:12px;padding:8px;max-height:20vh;overflow:auto}
+  .debug h3{margin:0 0 6px 0;font-size:12px;color:#bcd}
+  .debug pre{margin:0;font-size:12px;white-space:pre-wrap;word-break:break-word}
+  .debug .row{opacity:.9}
+  @media (max-width:900px){th, td{min-width:80px} header{gap:.4rem} header h1{display:none}}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Mini Excel Editor</h1>
+    <button id="newSheet" title="New blank sheet">New</button>
+    <button id="addRow" title="Add a row">+ Row</button>
+    <button id="addCol" title="Add a column">+ Col</button>
+    <button id="delRow" title="Delete last row">– Row</button>
+    <button id="delCol" title="Delete last column">– Col</button>
+
+    <div class="toolbar">
+      <label class="btn-file" title="Open CSV/XLSX">
+        Open
+        <input id="fileInput" type="file" accept=".csv, text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xlsx" />
+      </label>
+      <button id="saveCSV" title="Download as CSV">Export CSV</button>
+      <button id="saveXLSX" title="Download as XLSX">Export XLSX</button>
+      <div id="sheetPicker" class="sheetPicker">
+        <span>Sheet:</span>
+        <select id="sheetSelect"></select>
+      </div>
+      <button id="runTests" title="Quick self-test">Run Tests</button>
+      <button id="toggleDebug" title="Show/hide debug log">Debug</button>
+      <button id="copyDebug" title="Copy debug report">Copy Report</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="sheet">
+      <table id="grid">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="status">
+      <span class="pill hint">Tip: use formulas like <code>=A1+B2*2</code> or <code>=SUM(A1:A5,B2)</code></span>
+      <span id="calcState" class="pill">Ready</span>
+      <span id="xlsxState" class="pill">XLSX: not loaded</span>
+      <span id="fileInfo" class="pill"></span>
+    </div>
+
+    <div id="debugBox" class="debug" style="display:none">
+      <h3>Debug Log</h3>
+      <pre id="debugOut"></pre>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const gridEl = document.getElementById('grid');
+    const thead = gridEl.querySelector('thead');
+    const tbody = gridEl.querySelector('tbody');
+    const calcState = document.getElementById('calcState');
+    const fileInfo = document.getElementById('fileInfo');
+    const xlsxState = document.getElementById('xlsxState');
+    const pickerWrap = document.getElementById('sheetPicker');
+    const sheetSelect = document.getElementById('sheetSelect');
+    const saveXLSXBtn = document.getElementById('saveXLSX');
+    const debugBox = document.getElementById('debugBox');
+    const debugOut = document.getElementById('debugOut');
+
+    // In-memory sheet data model
+    let rows = 30, cols = 12;
+    let data = createEmpty(rows, cols); // stores raw strings (including formulas)
+
+    // Error map: key "r,c" -> message
+    const errMap = new Map();
+
+    // XLSX lib reference (avoid global window access)
+    let XLSXRef = null; // set after ensureXLSX()
+
+    // For XLSX multi-sheet handling
+    let currentWB = null; // Workbook object
+
+    // ===== Debug helpers =====
+    function log(...args){
+      const line = `[${new Date().toISOString()}] ` + args.map(a=>{
+        try{ return typeof a==='string'? a : JSON.stringify(a); }catch{ return String(a); }
+      }).join(' ');
+      console.log(...args);
+      debugOut.textContent += line + "\n";
+      debugOut.parentElement.scrollTop = debugOut.parentElement.scrollHeight;
+    }
+    document.getElementById('toggleDebug').onclick = ()=>{
+      debugBox.style.display = debugBox.style.display==='none' ? 'block' : 'none';
+    };
+    document.getElementById('copyDebug').onclick = async ()=>{
+      const report = collectReport();
+      await navigator.clipboard.writeText(report);
+      fileInfo.textContent = 'Debug report copied to clipboard';
+    };
+    function collectReport(){
+      // basic environment + last 200 lines of debug
+      const env = {
+        ua: navigator.userAgent,
+        xlsxLoaded: !!(XLSXRef||window.XLSX),
+        rows, cols,
+        errCount: errMap.size
+      };
+      const lines = debugOut.textContent.split(/\n/);
+      const tail = lines.slice(Math.max(0, lines.length-200)).join('\n');
+      return `ENV: ${JSON.stringify(env, null, 2)}\n\nLOG:\n${tail}`;
+    }
+
+    // ===== Robust XLSX loader (prevents ReferenceError) =====
+    async function ensureXLSX(){
+      if (XLSXRef) { xlsxState.textContent = 'XLSX: loaded'; return XLSXRef; }
+      xlsxState.textContent = 'XLSX: loading…';
+      const sources = [
+        'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+        'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+        'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+      ];
+      for (const src of sources){
+        try{
+          await loadScript(src, 12000);
+          if (window.XLSX){
+            XLSXRef = window.XLSX;
+            xlsxState.textContent = 'XLSX: loaded';
