@@ -5,8 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const calcState = document.getElementById('calcState');
       const fileInfo = document.getElementById('fileInfo');
       const xlsxState = document.getElementById('xlsxState');
-      const pickerWrap = document.getElementById('sheetPicker');
-      const sheetSelect = document.getElementById('sheetSelect');
+      const sheetTabs = document.getElementById('sheetTabs');
       const saveXLSXBtn = document.getElementById('saveXLSX');
       const debugBox = document.getElementById('debugBox');
       const debugOut = document.getElementById('debugOut');
@@ -17,17 +16,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const undoBtn = document.getElementById('undoBtn');
       const redoBtn = document.getElementById('redoBtn');
 
-    // In-memory sheet data model
-      let rows = 30, cols = 12;
-      let data = createEmpty(rows, cols); // stores { value, bold, italic, bgColor }
+    // Sheet management
+      function createSheet(name, r=30, c=12){
+        return {name, rows:r, cols:c, data:createEmpty(r,c), colWidths:Array(c).fill(null), rowHeights:Array(r).fill(null)};
+      }
+      const sheets = [createSheet('Sheet1')];
+      let activeSheetIndex = 0;
+      let rows = sheets[0].rows, cols = sheets[0].cols, data = sheets[0].data;
+      let colWidths = sheets[0].colWidths, rowHeights = sheets[0].rowHeights;
       let copyOrigin = null; // track source cell for copy/paste
       let activeCell = {r:0, c:0};
       const undoStack = [];
       const redoStack = [];
-
-      // Track manual column widths and row heights
-      let colWidths = Array(cols).fill(null);
-      let rowHeights = Array(rows).fill(null);
 
     // Error map: key "r,c" -> message
     const errMap = new Map();
@@ -35,8 +35,73 @@ document.addEventListener('DOMContentLoaded', () => {
     // XLSX lib reference (avoid global window access)
     let XLSXRef = null; // set after ensureXLSX()
 
-    // For XLSX multi-sheet handling
-    let currentWB = null; // Workbook object
+    // Sheet tab helpers
+    function renderTabs(){
+      sheetTabs.innerHTML='';
+      sheets.forEach((s,i)=>{
+        const tab=document.createElement('div');
+        tab.className='sheetTab'+(i===activeSheetIndex?' active':'');
+        tab.textContent=s.name;
+        tab.dataset.idx=i;
+        const close=document.createElement('span');
+        close.textContent='×';
+        close.className='close';
+        tab.appendChild(close);
+        sheetTabs.appendChild(tab);
+      });
+      const add=document.createElement('div');
+      add.className='sheetTab add';
+      add.textContent='+';
+      sheetTabs.appendChild(add);
+    }
+    function saveActiveState(){
+      const s=sheets[activeSheetIndex];
+      s.rows=rows; s.cols=cols; s.data=data; s.colWidths=colWidths; s.rowHeights=rowHeights;
+    }
+    function loadSheet(idx){
+      const s=sheets[idx];
+      rows=s.rows; cols=s.cols; data=s.data; colWidths=s.colWidths; rowHeights=s.rowHeights;
+      activeSheetIndex=idx;
+      renderHeader(); renderBody(); recalc();
+    }
+    function addSheet(){
+      saveActiveState();
+      const name=`Sheet${sheets.length+1}`;
+      sheets.push(createSheet(name));
+      loadSheet(sheets.length-1);
+      renderTabs();
+    }
+    function switchSheet(idx){
+      if(idx===activeSheetIndex) return;
+      saveActiveState();
+      loadSheet(idx);
+      renderTabs();
+    }
+    function deleteSheet(idx){
+      if(sheets.length===1) return;
+      sheets.splice(idx,1);
+      if(activeSheetIndex>=sheets.length) activeSheetIndex=sheets.length-1;
+      loadSheet(activeSheetIndex);
+      renderTabs();
+    }
+    sheetTabs.addEventListener('click', e=>{
+      const t=e.target;
+      if(t.classList.contains('close')){
+        deleteSheet(+t.parentElement.dataset.idx);
+      }else if(t.classList.contains('add')){
+        addSheet();
+      }else{
+        const tab=t.closest('.sheetTab');
+        if(tab) switchSheet(+tab.dataset.idx);
+      }
+    });
+    sheetTabs.addEventListener('dblclick', e=>{
+      const tab=e.target.closest('.sheetTab');
+      if(!tab || tab.classList.contains('add')) return;
+      const idx=+tab.dataset.idx;
+      const name=prompt('Rename sheet', sheets[idx].name);
+      if(name){ sheets[idx].name=name; renderTabs(); }
+    });
 
     // ===== Debug helpers =====
     function log(...args){
@@ -108,6 +173,24 @@ document.addEventListener('DOMContentLoaded', () => {
         s.addEventListener('load', ()=> clearTimeout(to));
         s.addEventListener('error', ()=> clearTimeout(to));
       });
+    }
+
+    // Optional ZIP library for multi-sheet CSV export
+    let JSZipRef = null;
+    async function ensureJSZip(){
+      if (JSZipRef) return JSZipRef;
+      const sources = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+        'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+        'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js'
+      ];
+      for (const src of sources){
+        try{
+          await loadScript(src,12000);
+          if (window.JSZip){ JSZipRef = window.JSZip; log('JSZip loaded from', src); return JSZipRef; }
+        }catch(e){ log('JSZip load failed from', src, e.message); }
+      }
+      log('JSZip unavailable'); return null;
     }
 
     // Utilities
@@ -677,16 +760,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('delRow').addEventListener('click', () => modifyGrid('delRow'));
     document.getElementById('delCol').addEventListener('click', () => modifyGrid('delCol'));
     document.getElementById('newSheet').onclick = ()=>{
-      rows = 30; cols = 12; data = createEmpty(rows, cols);
-      colWidths = Array(cols).fill(null);
-      rowHeights = Array(rows).fill(null);
-      currentWB = null; pickerWrap.classList.remove('active'); sheetSelect.innerHTML=''; fileInfo.textContent = '';
-      renderHeader(); renderBody(); recalc();
+      sheets.length=0;
+      sheets.push(createSheet('Sheet1'));
+      loadSheet(0);
+      renderTabs();
+      fileInfo.textContent='';
     };
 
     // CSV helpers
-    function toCSV(){
-      return data.map(row=>
+    function toCSV(d=data){
+      return d.map(row=>
         row.map(cell=>{
           const s = String(cell.value ?? '');
           if(/[,"\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
@@ -717,14 +800,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return out.map(r=>r.concat(Array(Math.max(0,maxC-r.length)).fill('')));
     }
 
-    function loadArray(arr){
-      rows = arr.length;
-      cols = Math.max(...arr.map(r=>r.length));
-      data = createEmpty(rows, cols);
-      colWidths = Array(cols).fill(null);
-      rowHeights = Array(rows).fill(null);
-      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) data[r][c].value = arr[r][c]??'';
-      renderHeader(); renderBody(); recalc();
+    function loadArrayInto(sheet, arr){
+      sheet.rows = arr.length;
+      sheet.cols = Math.max(...arr.map(r=>r.length));
+      sheet.data = createEmpty(sheet.rows, sheet.cols);
+      sheet.colWidths = Array(sheet.cols).fill(null);
+      sheet.rowHeights = Array(sheet.rows).fill(null);
+      for(let r=0;r<sheet.rows;r++) for(let c=0;c<sheet.cols;c++) sheet.data[r][c].value = arr[r][c]??'';
     }
 
     // File open
@@ -733,27 +815,31 @@ document.addEventListener('DOMContentLoaded', () => {
       try{
         if(name.endsWith('.csv')){
           let txt = await file.text();
-          // Strip UTF-8 BOM if present
           if (txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1);
-          loadArray(parseCSV(txt));
+          const arr = parseCSV(txt);
+          sheets.length=0;
+          const sh = createSheet(file.name.replace(/\.csv$/i,''));
+          loadArrayInto(sh, arr);
+          sheets.push(sh);
+          loadSheet(0);
+          renderTabs();
           fileInfo.textContent = `Loaded CSV (${file.name})`;
-          currentWB = null; pickerWrap.classList.remove('active'); sheetSelect.innerHTML='';
         }else{
           const lib = await ensureXLSX();
           if(!lib){ fileInfo.textContent = 'XLSX library unavailable — please open CSV instead'; return; }
           const buf = await file.arrayBuffer();
           const wb = lib.read(buf, {type:'array'});
-          currentWB = wb;
-          sheetSelect.innerHTML = '';
-          wb.SheetNames.forEach((sn, i)=>{
-            const opt = document.createElement('option');
-            opt.value = sn; opt.textContent = sn;
-            if(i===0) opt.selected = true;
-            sheetSelect.appendChild(opt);
+          sheets.length=0;
+          wb.SheetNames.forEach(sn=>{
+            const ws = wb.Sheets[sn];
+            const arr = lib.utils.sheet_to_json(ws,{header:1, blankrows:true, defval:''});
+            const sh = createSheet(sn);
+            loadArrayInto(sh, arr);
+            sheets.push(sh);
           });
-          pickerWrap.classList.toggle('active', wb.SheetNames.length > 1);
-          loadSheetByName(wb.SheetNames[0], lib);
-          fileInfo.textContent = `Loaded XLSX (${file.name}) — ${wb.SheetNames.length>1? 'Select sheet':''}`;
+          loadSheet(0);
+          renderTabs();
+          fileInfo.textContent = `Loaded XLSX (${file.name})`;
         }
       }catch(err){
         fileInfo.textContent = 'Failed to open file';
@@ -764,49 +850,51 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    function loadSheetByName(name, lib){
-      const L = lib || XLSXRef || window.XLSX; if(!currentWB || !L) return;
-      const ws = currentWB.Sheets[name];
-      const arr = L.utils.sheet_to_json(ws, {header:1, blankrows:true, defval:''});
-      loadArray(arr); // render + autofit inside
-    }
-    sheetSelect.addEventListener('change', async ()=>{
-      const lib = XLSXRef || await ensureXLSX();
-      loadSheetByName(sheetSelect.value, lib);
-    });
-
     // Save CSV
-    document.getElementById('saveCSV').onclick = ()=>{
-      const blob = new Blob([toCSV()], {type:'text/csv;charset=utf-8'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sheet.csv'; a.click(); URL.revokeObjectURL(a.href);
+    document.getElementById('saveCSV').onclick = async ()=>{
+      saveActiveState();
+      if(sheets.length===1){
+        const blob = new Blob([toCSV(sheets[0].data)], {type:'text/csv;charset=utf-8'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${sheets[0].name}.csv`; a.click(); URL.revokeObjectURL(a.href);
+      }else{
+        const zipLib = await ensureJSZip();
+        if(!zipLib){ fileInfo.textContent = 'ZIP export unavailable'; return; }
+        const zip = new zipLib();
+        sheets.forEach(sh=> zip.file(`${sh.name}.csv`, toCSV(sh.data)) );
+        const blob = await zip.generateAsync({type:'blob'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sheets.zip'; a.click(); URL.revokeObjectURL(a.href);
+      }
     };
 
     // Save XLSX (lazy-load lib to prevent ReferenceError)
     saveXLSXBtn.onclick = async ()=>{
+      saveActiveState();
       const lib = XLSXRef || await ensureXLSX();
       if(!lib){ fileInfo.textContent = 'XLSX export unavailable — library not loaded'; return; }
-      const aoa = data.map(row=>row.map(cell=>cell.value));
-      const ws = lib.utils.aoa_to_sheet(aoa);
-      for(let r=0;r<rows;r++){
-        for(let c=0;c<cols;c++){
-          const cell = data[r][c];
-          if(!cell.bold && !cell.italic && !cell.bgColor) continue;
-          const addr = lib.utils.encode_cell({r,c});
-          ws[addr] = ws[addr] || { t:'s', v: cell.value || '' };
-          ws[addr].s = ws[addr].s || {};
-          if(cell.bold || cell.italic){
-            ws[addr].s.font = ws[addr].s.font || {};
-            if(cell.bold) ws[addr].s.font.bold = true;
-            if(cell.italic) ws[addr].s.font.italic = true;
-          }
-          if(cell.bgColor){
-            ws[addr].s.fill = { patternType:'solid', fgColor:{ rgb:'FF'+cell.bgColor.slice(1).toUpperCase() } };
+      const wb = lib.utils.book_new();
+      sheets.forEach(sh=>{
+        const aoa = sh.data.map(row=>row.map(cell=>cell.value));
+        const ws = lib.utils.aoa_to_sheet(aoa);
+        for(let r=0;r<sh.rows;r++){
+          for(let c=0;c<sh.cols;c++){
+            const cell = sh.data[r][c];
+            if(!cell.bold && !cell.italic && !cell.bgColor) continue;
+            const addr = lib.utils.encode_cell({r,c});
+            ws[addr] = ws[addr] || { t:'s', v: cell.value || '' };
+            ws[addr].s = ws[addr].s || {};
+            if(cell.bold || cell.italic){
+              ws[addr].s.font = ws[addr].s.font || {};
+              if(cell.bold) ws[addr].s.font.bold = true;
+              if(cell.italic) ws[addr].s.font.italic = true;
+            }
+            if(cell.bgColor){
+              ws[addr].s.fill = { patternType:'solid', fgColor:{ rgb:'FF'+cell.bgColor.slice(1).toUpperCase() } };
+            }
           }
         }
-      }
-      const wb = lib.utils.book_new();
-      lib.utils.book_append_sheet(wb, ws, 'Sheet1');
-      lib.writeFile(wb, 'sheet.xlsx');
+        lib.utils.book_append_sheet(wb, ws, sh.name);
+      });
+      lib.writeFile(wb, 'sheets.xlsx');
     };
 
     // ===== Keyboard navigation (Enter/Shift+Enter, Tab/Shift+Tab, arrows) =====
@@ -985,6 +1073,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ===== Init =====
-    renderHeader(); renderBody(); recalc();
+    renderHeader(); renderBody(); recalc(); renderTabs();
 });
 
