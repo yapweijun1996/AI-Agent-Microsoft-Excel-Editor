@@ -201,11 +201,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Formula evaluation (simple & safe-ish)
     function rawValue(r,c){ return data[r]?.[c] ?? ''; }
-    function isErr(v){ return v && typeof v==='object' && v.error; }
+    const VALUE_ERROR = {error:'#VALUE!'};
+    function isErr(v){ return v === VALUE_ERROR; }
     function numeric(v){
       if(isErr(v)) return v;
       const n = Number(v);
-      return isFinite(n) ? n : {error:'#VALUE!'};
+      return isFinite(n) ? n : VALUE_ERROR;
     }
     function flatten(args){
       const out=[];
@@ -351,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return v;
         }catch(e){
           setError(r,c, String(e.message||e));
-          return 'ERR';
+          return VALUE_ERROR;
         }
       }
       clearError(r,c);
@@ -362,7 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if(isBlankFormula(raw)) return raw; // show '=' while user is typing
       if(typeof raw === 'string' && raw.startsWith('=')) {
         const v = valueAt(r,c);
-        if(v === 'ERR') return 'ERR';
         if(isErr(v)) return v.error;
         return String(v);
       }
@@ -375,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = `${r},${c}`;
         if(errMap.has(key)){
           el.classList.add('err');
-          el.title = `ERR: ${errMap.get(key)}`;
+          el.title = `#VALUE!: ${errMap.get(key)}`;
         } else {
           el.classList.remove('err');
           el.removeAttribute('title');
@@ -685,7 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Added Test 6: Unsafe formula handled
       data[0][0]='=A1+BADFUNC(1)';
       const unsafe = valueAt(0,0);
-      results.push(unsafe==='ERR' ? '✓ Unsafe formula -> ERR' : `✗ Unsafe formula not blocked (${unsafe})`);
+      results.push(isErr(unsafe) ? '✓ Unsafe formula -> #VALUE!' : `✗ Unsafe formula not blocked (${unsafe})`);
 
       // Added Test 7: Blank '=' preserved
       data[0][0]='='; const blank = valueAt(0,0);
