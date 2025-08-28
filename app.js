@@ -949,6 +949,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.addEventListener('keydown', (e)=>{
       const el = e.target.closest('.cell'); if (!el) return;
       const r = +el.dataset.r, c = +el.dataset.c;
+      
+      // Check if we're editing a formula (starts with =)
+      const isEditingFormula = el.textContent.startsWith('=');
+      
       const go = (nr, nc)=>{ 
         e.preventDefault(); 
         // Update current cell display before moving
@@ -957,8 +961,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         focusCell(nr, nc); 
       };
+      
+      // Excel-like formula navigation: insert cell references when editing formulas
+      const insertCellRef = (targetR, targetC) => {
+        e.preventDefault();
+        const ref = colLabel(targetC) + (targetR + 1);
+        const currentText = el.textContent;
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const newText = currentText.slice(0, range.startOffset) + ref + currentText.slice(range.endOffset);
+          el.textContent = newText;
+          
+          // Update data and formula bar
+          data[r][c].value = newText;
+          formulaBar.value = newText;
+          
+          // Position cursor after the inserted reference
+          const newPos = range.startOffset + ref.length;
+          const newRange = document.createRange();
+          const textNode = el.firstChild || el;
+          newRange.setStart(textNode, Math.min(newPos, textNode.textContent?.length || 0));
+          newRange.setEnd(textNode, Math.min(newPos, textNode.textContent?.length || 0));
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+          
+          recalc();
+        }
+      };
+      
       if (e.key === 'Enter') return go(r + (e.shiftKey?-1:1), c);
       if (e.key === 'Tab')   return go(r, c + (e.shiftKey?-1:1));
+      
+      // Arrow key behavior: insert cell references when editing formulas
+      if (isEditingFormula && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        if (e.key === 'ArrowDown') return insertCellRef(r+1, c);
+        if (e.key === 'ArrowUp') return insertCellRef(r-1, c);
+        if (e.key === 'ArrowLeft') return insertCellRef(r, c-1);
+        if (e.key === 'ArrowRight') return insertCellRef(r, c+1);
+      }
+      
+      // Normal navigation when not editing formulas or with modifiers
       if (e.key === 'ArrowDown' && !e.shiftKey) return go(r+1, c);
       if (e.key === 'ArrowUp'   && !e.shiftKey) return go(r-1, c);
       if (e.key === 'ArrowLeft' && (e.ctrlKey||e.metaKey)) return go(r, c-1);
