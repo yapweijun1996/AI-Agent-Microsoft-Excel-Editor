@@ -283,7 +283,9 @@
 
     function refreshAllDisplay(){
       const snap = getCaret();
+      const active = document.activeElement;
       for(const el of tbody.querySelectorAll('.cell')){
+        if (el === active) continue; // keep user input while editing
         const r = +el.dataset.r, c = +el.dataset.c;
         const newText = displayValue(r,c);
         if (el.textContent !== newText) el.textContent = newText;
