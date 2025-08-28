@@ -39,8 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('copyDebug').onclick = async ()=>{
       const report = collectReport();
-      await navigator.clipboard.writeText(report);
-      fileInfo.textContent = 'Debug report copied to clipboard';
+      try {
+        await navigator.clipboard.writeText(report);
+        fileInfo.textContent = 'Debug report copied to clipboard';
+      } catch (e) {
+        fileInfo.textContent = 'Failed to copy debug report';
+        log('Failed to copy debug report', e);
+      }
     };
     function collectReport(){
       // basic environment + last 200 lines of debug
