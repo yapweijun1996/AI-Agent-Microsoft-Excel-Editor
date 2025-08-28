@@ -11,10 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const debugBox = document.getElementById('debugBox');
       const debugOut = document.getElementById('debugOut');
       const formulaBar = document.getElementById('formulaBar');
+      const boldBtn = document.getElementById('boldBtn');
+      const italicBtn = document.getElementById('italicBtn');
+      const fillColorInput = document.getElementById('fillColor');
 
     // In-memory sheet data model
       let rows = 30, cols = 12;
-      let data = createEmpty(rows, cols); // stores raw strings (including formulas)
+      let data = createEmpty(rows, cols); // stores { value, bold, italic, bgColor }
       let copyOrigin = null; // track source cell for copy/paste
       let activeCell = {r:0, c:0};
 
@@ -100,7 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Utilities
-    function createEmpty(r,c){ return Array.from({length:r},()=>Array.from({length:c},()=>'')); }
+    function createCell(){ return { value:'', bold:false, italic:false, bgColor:'' }; }
+    function createEmpty(r,c){ return Array.from({length:r},()=>Array.from({length:c},()=>createCell())); }
     function colLabel(n){ // 0->A, 25->Z, 26->AA
       let s=''; n = n>>>0; do{ s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n/26) - 1; } while(n>=0); return s;
     }
@@ -132,6 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Rendering
+    function applyCellStyles(el, cell){
+      el.style.fontWeight = cell.bold ? 'bold' : '';
+      el.style.fontStyle = cell.italic ? 'italic' : '';
+      el.style.backgroundColor = cell.bgColor || '';
+    }
     function renderHeader(){
       const tr = document.createElement('tr');
       tr.appendChild(document.createElement('th')); // corner
@@ -158,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.dataset.r = r;
             div.dataset.c = c;
             div.textContent = displayValue(r,c);
+            applyCellStyles(div, data[r][c]);
             div.addEventListener('input', onEdit);
             div.addEventListener('blur', onBlurNormalize);
             div.addEventListener('focus', onCellFocus);
@@ -177,9 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
         r = Math.max(0, Math.min(rows-1, r));
         c = Math.max(0, Math.min(cols-1, c));
         activeCell = {r,c};
+        const cell = data[r][c];
         formulaBar.value = rawValue(r,c);
         formulaBar.dataset.r = r;
         formulaBar.dataset.c = c;
+        if(fillColorInput) fillColorInput.value = cell.bgColor || '#ffffff';
       }
       function getCaret() {
         const el = document.activeElement;
@@ -216,13 +228,14 @@ document.addEventListener('DOMContentLoaded', () => {
           if (el === active || (active === formulaBar && activeCell.r === r && activeCell.c === c)) continue; // keep user input while editing
           const newText = displayValue(r,c);
           if (el.textContent !== newText) el.textContent = newText;
+          applyCellStyles(el, data[r][c]);
         }
         applyErrorDecorations();
         setCaret(snap);
       }
 
     // Formula evaluation (simple & safe-ish)
-    function rawValue(r,c){ return data[r]?.[c] ?? ''; }
+    function rawValue(r,c){ return data[r]?.[c]?.value ?? ''; }
     const VALUE_ERROR = {error:'#VALUE!'};
     function isErr(v){ return v === VALUE_ERROR; }
     function numeric(v){
@@ -413,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function onEdit(e){
         const el = e.currentTarget;
         const r = +el.dataset.r, c = +el.dataset.c;
-        data[r][c] = el.textContent;
+        data[r][c].value = el.textContent;
         if(document.activeElement === el){
           formulaBar.value = el.textContent;
         }
@@ -429,10 +442,32 @@ document.addEventListener('DOMContentLoaded', () => {
       formulaBar.addEventListener('input', () => {
         const r = +formulaBar.dataset.r, c = +formulaBar.dataset.c;
         if (isNaN(r) || isNaN(c)) return;
-        data[r][c] = formulaBar.value;
+        data[r][c].value = formulaBar.value;
         const cell = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
         if (cell && document.activeElement !== cell) cell.textContent = formulaBar.value;
         recalc();
+      });
+
+      boldBtn?.addEventListener('click', () => {
+        const {r,c} = activeCell;
+        const cell = data[r][c];
+        cell.bold = !cell.bold;
+        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        if(el) applyCellStyles(el, cell);
+      });
+      italicBtn?.addEventListener('click', () => {
+        const {r,c} = activeCell;
+        const cell = data[r][c];
+        cell.italic = !cell.italic;
+        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        if(el) applyCellStyles(el, cell);
+      });
+      fillColorInput?.addEventListener('input', () => {
+        const {r,c} = activeCell;
+        const cell = data[r][c];
+        cell.bgColor = fillColorInput.value;
+        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        if(el) applyCellStyles(el, cell);
       });
 
     // Throttled recalc (avoid flood while typing quickly)
@@ -455,11 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function modifyGrid(type){
       switch(type){
         case 'addRow':
-          data.push(Array.from({length:cols},()=>''));
+          data.push(Array.from({length:cols},()=>createCell()));
           rows++;
           break;
         case 'addCol':
-          for(const r of data) r.push('');
+          for(const r of data) r.push(createCell());
           cols++;
           break;
         case 'delRow':
@@ -494,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function toCSV(){
       return data.map(row=>
         row.map(cell=>{
-          const s = String(cell ?? '');
+          const s = String(cell.value ?? '');
           if(/[,"\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
           return s;
         }).join(',')
@@ -527,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rows = arr.length;
       cols = Math.max(...arr.map(r=>r.length));
       data = createEmpty(rows, cols);
-      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) data[r][c]=arr[r][c]??'';
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) data[r][c].value = arr[r][c]??'';
       renderHeader(); renderBody(); recalc();
     }
 
@@ -589,8 +624,25 @@ document.addEventListener('DOMContentLoaded', () => {
     saveXLSXBtn.onclick = async ()=>{
       const lib = XLSXRef || await ensureXLSX();
       if(!lib){ fileInfo.textContent = 'XLSX export unavailable — library not loaded'; return; }
-      const aoa = data.map(row=>row.slice());
+      const aoa = data.map(row=>row.map(cell=>cell.value));
       const ws = lib.utils.aoa_to_sheet(aoa);
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const cell = data[r][c];
+          if(!cell.bold && !cell.italic && !cell.bgColor) continue;
+          const addr = lib.utils.encode_cell({r,c});
+          ws[addr] = ws[addr] || { t:'s', v: cell.value || '' };
+          ws[addr].s = ws[addr].s || {};
+          if(cell.bold || cell.italic){
+            ws[addr].s.font = ws[addr].s.font || {};
+            if(cell.bold) ws[addr].s.font.bold = true;
+            if(cell.italic) ws[addr].s.font.italic = true;
+          }
+          if(cell.bgColor){
+            ws[addr].s.fill = { patternType:'solid', fgColor:{ rgb:'FF'+cell.bgColor.slice(1).toUpperCase() } };
+          }
+        }
+      }
       const wb = lib.utils.book_new();
       lib.utils.book_append_sheet(wb, ws, 'Sheet1');
       lib.writeFile(wb, 'sheet.xlsx');
@@ -649,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(copyOrigin && typeof cellText==='string' && cellText.startsWith('=')){
               cellText = '=' + shiftFormulaRefs(cellText.slice(1), dr, dc);
             }
-            data[rr][cc] = cellText;
+            data[rr][cc].value = cellText;
           }
         }
       }
@@ -686,9 +738,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('runTests').onclick = async ()=>{
       const results = [];
       // Existing Test 1: formula evaluation
-      const bak = data.map(r=>r.slice()); const bakRows=rows, bakCols=cols;
+      const bak = data.map(r=>r.map(cell=>({...cell}))); const bakRows=rows, bakCols=cols;
       rows=2; cols=3; data=createEmpty(rows,cols);
-      data[0][0]='1'; data[0][1]='2'; data[0][2]='=A1+B1*3';
+      data[0][0].value='1'; data[0][1].value='2'; data[0][2].value='=A1+B1*3';
       const val = valueAt(0,2);
       results.push(val===7 ? '✓ Formula (=A1+B1*3) == 7' : `✗ Formula expected 7 got ${val}`);
 
@@ -706,12 +758,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Added Test 4: SUM(range & multi-range) evaluation
       rows=3; cols=3; data=createEmpty(rows,cols);
-      data[0][0]='1'; data[0][1]='2'; data[1][0]='3'; data[1][1]='4';
-      data[0][2]='5'; data[1][2]='6';
-      data[2][2]='=SUM(A1:B2)';
+      data[0][0].value='1'; data[0][1].value='2'; data[1][0].value='3'; data[1][1].value='4';
+      data[0][2].value='5'; data[1][2].value='6';
+      data[2][2].value='=SUM(A1:B2)';
       const sumVal = valueAt(2,2);
       results.push(sumVal===10 ? '✓ SUM(A1:B2) == 10' : `✗ SUM(A1:B2) expected 10 got ${sumVal}`);
-      data[2][2]='=SUM(A1:B1,B2:C2)';
+      data[2][2].value='=SUM(A1:B1,B2:C2)';
       const sumVal2 = valueAt(2,2);
       results.push(sumVal2===13 ? '✓ SUM(A1:B1,B2:C2) == 13' : `✗ SUM multi-range expected 13 got ${sumVal2}`);
 
@@ -722,47 +774,47 @@ document.addEventListener('DOMContentLoaded', () => {
       results.push(ok5 ? '✓ A1 parse & colLabel' : '✗ A1 parse/label failed');
 
       // Added Test 6: Unsafe formula handled
-      data[0][0]='=A1+BADFUNC(1)';
+      data[0][0].value='=A1+BADFUNC(1)';
       const unsafe = valueAt(0,0);
       results.push(isErr(unsafe) ? '✓ Unsafe formula -> #VALUE!' : `✗ Unsafe formula not blocked (${unsafe})`);
 
       // Added Test 7: Blank '=' preserved
-      data[0][0]='='; const blank = valueAt(0,0);
+      data[0][0].value='='; const blank = valueAt(0,0);
       results.push(blank==='=' ? '✓ Blank formula (=) kept' : `✗ '=' should be kept, got ${blank}`);
 
       // Added Test 8: Whitespace-only after '=' preserved
-      data[0][0]='=   '; const blank2 = valueAt(0,0);
+      data[0][0].value='=   '; const blank2 = valueAt(0,0);
       results.push(/^=\s*$/.test(blank2) ? '✓ Whitespace-only formula kept' : `✗ '=   ' should be kept, got ${blank2}`);
 
       // Added Test 9: Nested functions & MIN/MAX/AVERAGE
       rows=2; cols=2; data=createEmpty(rows,cols);
-      data[0][0]='5'; data[0][1]='15';
-      data[1][0]='=SUM(MIN(A1:B1), MAX(A1:B1), AVERAGE(A1:B1))';
+      data[0][0].value='5'; data[0][1].value='15';
+      data[1][0].value='=SUM(MIN(A1:B1), MAX(A1:B1), AVERAGE(A1:B1))';
       const nested = valueAt(1,0);
       results.push(nested===30 ? '✓ Nested MIN/MAX/AVERAGE' : `✗ Nested functions expected 30 got ${nested}`);
 
       // Added Test 10: Parentheses precedence
-      data[1][1]='=(1+2)*3';
+      data[1][1].value='=(1+2)*3';
       const prec = valueAt(1,1);
       results.push(prec===9 ? '✓ (1+2)*3 == 9' : `✗ (1+2)*3 expected 9 got ${prec}`);
 
       // Added Test 11: Error propagation for non-numeric
       rows=1; cols=3; data=createEmpty(rows,cols);
-      data[0][0]='a';
-      data[0][1]='=1+A1';
+      data[0][0].value='a';
+      data[0][1].value='=1+A1';
       const err1 = valueAt(0,1);
       results.push(err1 && err1.error==='#VALUE!' ? '✓ 1+A1 with A1="a" -> #VALUE!' : `✗ 1+A1 expected #VALUE! got ${String(err1)}`);
-      data[0][2]='=SUM(1,A1)';
+      data[0][2].value='=SUM(1,A1)';
       const err2 = valueAt(0,2);
       results.push(err2 && err2.error==='#VALUE!' ? '✓ SUM(1,A1) -> #VALUE!' : `✗ SUM(1,A1) expected #VALUE! got ${String(err2)}`);
 
       // Added Test 12: Absolute reference shifting
       rows=3; cols=3; data=createEmpty(rows,cols);
-      data[0][0]='1'; data[1][0]='2'; data[0][1]='3'; data[1][1]='4';
+      data[0][0].value='1'; data[1][0].value='2'; data[0][1].value='3'; data[1][1].value='4';
       const baseFormula='=$A$1+$A1+A$1+A1';
       const shifted='='+shiftFormulaRefs(baseFormula.slice(1),1,1);
       const okAbs = shifted==='=$A$1+$A2+B$1+B2';
-      data[2][2]=shifted;
+      data[2][2].value=shifted;
       const absVal = valueAt(2,2);
       results.push(okAbs && absVal===10 ? '✓ $A$1/$A1/A$1 refs' : `✗ $ refs failed (${shifted} -> ${absVal})`);
 

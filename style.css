@@ -3,8 +3,8 @@
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Arial}
   header{display:flex;gap:.5rem;align-items:center;padding:.75rem;border-bottom:1px solid #1b254b;background:linear-gradient(180deg,var(--panel),#0f1734)}
   header h1{font-size:16px;margin:0 1rem 0 0;opacity:.9;font-weight:600;letter-spacing:.2px}
-  button, .btn-file, select{background:#1a2450;border:1px solid #2c3a74;border-radius:10px;padding:.5rem .75rem;color:var(--text);cursor:pointer}
-  button:hover,.btn-file:hover, select:hover{background:#21306b}
+  button, .btn-file, select, input[type="color"]{background:#1a2450;border:1px solid #2c3a74;border-radius:10px;padding:.5rem .75rem;color:var(--text);cursor:pointer}
+  button:hover,.btn-file:hover, select:hover, input[type="color"]:hover{background:#21306b}
   button[disabled]{opacity:.55;cursor:not-allowed}
   .btn-file{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:.5rem}
   .btn-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
