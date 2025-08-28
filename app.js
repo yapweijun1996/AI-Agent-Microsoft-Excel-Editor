@@ -479,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function isErr(v){ return v && typeof v === 'object' && 'error' in v; }
     function numeric(v){
       if(isErr(v)) return v;
+      if(v === '') return VALUE_ERROR;
       const n = Number(v);
       return isFinite(n) ? n : VALUE_ERROR;
     }
@@ -1088,7 +1089,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const err2 = valueAt(0,2);
       results.push(err2 && err2.error==='#VALUE!' ? '✓ SUM(1,A1) -> #VALUE!' : `✗ SUM(1,A1) expected #VALUE! got ${String(err2)}`);
 
-      // Added Test 12: Absolute reference shifting
+      // Added Test 12: Blank cell reference -> #VALUE!
+      data=createEmpty(rows,cols);
+      data[0][1].value='=1+A1';
+      const errBlank = valueAt(0,1);
+      results.push(errBlank && errBlank.error==='#VALUE!' ? '✓ 1+A1 with A1 blank -> #VALUE!' : `✗ 1+A1 blank expected #VALUE! got ${String(errBlank)}`);
+
+      // Added Test 13: Absolute reference shifting
       rows=3; cols=3; data=createEmpty(rows,cols);
       data[0][0].value='1'; data[1][0].value='2'; data[0][1].value='3'; data[1][1].value='4';
       const baseFormula='=$A$1+$A1+A$1+A1';
