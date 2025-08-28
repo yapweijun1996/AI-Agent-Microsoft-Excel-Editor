@@ -43,6 +43,57 @@
   .debug .row{opacity:.9}
   @media (max-width:900px){th, td{min-width:80px} header{gap:.4rem} header h1{display:none}}
 
+/* Medium mobile devices - 600px and below */
+@media (max-width:600px){
+  body{font-size:13px}
+  header{padding:.5rem;flex-wrap:wrap;gap:.3rem}
+  header h1{display:none}
+  header .group{gap:.3rem}
+  button, .btn-file, select, input[type="color"]{padding:.4rem .6rem;font-size:13px;border-radius:8px}
+  #formulaBar{padding:.4rem;font-size:13px;min-width:120px}
+  .toolbar{gap:.3rem;margin:0;width:100%;justify-content:space-between}
+  .wrap{padding:8px}
+  .sheet{border-radius:10px;max-height:60vh}
+  th, td{min-width:70px;font-size:13px}
+  th{padding:.3rem .4rem}
+  td .cell{padding:.35rem .4rem;min-height:28px;font-size:13px}
+  .status{gap:.6rem;font-size:12px;margin-top:8px}
+  .status .pill{padding:.15rem .4rem;font-size:12px}
+  .sheetTabs{gap:.2rem}
+  .sheetTab{padding:.2rem .5rem;font-size:12px;border-radius:8px 8px 0 0}
+  .debug{padding:6px;max-height:15vh}
+  .debug h3{font-size:11px}
+  .debug pre{font-size:11px}
+  .menu .menu-items{min-width:140px;padding:.25rem}
+  .menu .menu-items button{padding:.4rem .5rem;font-size:13px}
+}
+
+/* Small mobile devices - 400px and below */
+@media (max-width:400px){
+  body{font-size:12px}
+  header{padding:.4rem;flex-direction:column;align-items:stretch}
+  header .group{justify-content:center;flex-wrap:wrap}
+  button, .btn-file, select, input[type="color"]{padding:.3rem .5rem;font-size:12px;border-radius:6px}
+  #formulaBar{padding:.3rem;font-size:12px;min-width:100px;width:100%;margin:.2rem 0}
+  .toolbar{flex-direction:column;gap:.2rem;align-items:stretch}
+  .wrap{padding:4px}
+  .sheet{border-radius:8px;max-height:50vh}
+  table{min-width:300px}
+  th, td{min-width:60px;font-size:12px}
+  th{padding:.25rem .3rem}
+  td .cell{padding:.3rem .35rem;min-height:24px;font-size:12px}
+  .status{flex-direction:column;align-items:flex-start;gap:.4rem;font-size:11px;margin-top:6px}
+  .status .pill{padding:.1rem .3rem;font-size:11px}
+  .sheetTabs{flex-wrap:wrap;gap:.15rem;justify-content:center}
+  .sheetTab{padding:.15rem .4rem;font-size:11px;border-radius:6px 6px 0 0}
+  .debug{padding:4px;max-height:12vh}
+  .debug h3{font-size:10px}
+  .debug pre{font-size:10px}
+  .menu .menu-items{min-width:120px;padding:.2rem;font-size:12px}
+  .menu .menu-items button{padding:.3rem .4rem;font-size:12px}
+  .col-resizer, .row-resizer{display:none} /* Hide resizers on very small screens */
+}
+
 
 /* --- Toolbar grouping and dropdown menus --- */
 header .group{display:inline-flex;gap:.5rem;align-items:center}

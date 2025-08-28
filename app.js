@@ -946,6 +946,9 @@ document.addEventListener('DOMContentLoaded', () => {
       range.setStart(node, len); range.setEnd(node, len);
       const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
     }
+    // Virtual cursor for formula navigation
+    let formulaVirtualCursor = { r: 0, c: 0, active: false };
+
     tbody.addEventListener('keydown', (e)=>{
       const el = e.target.closest('.cell'); if (!el) return;
       const r = +el.dataset.r, c = +el.dataset.c;
@@ -953,19 +956,32 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if we're editing a formula (starts with =)
       const isEditingFormula = el.textContent.startsWith('=');
       
+      // Reset virtual cursor when starting formula edit
+      if (isEditingFormula && !formulaVirtualCursor.active) {
+        formulaVirtualCursor = { r, c, active: true };
+      } else if (!isEditingFormula) {
+        formulaVirtualCursor.active = false;
+      }
+      
       const go = (nr, nc)=>{ 
         e.preventDefault(); 
         // Update current cell display before moving
         if (e.key === 'Enter') {
           el.textContent = displayValue(r, c);
+          formulaVirtualCursor.active = false; // Reset on Enter
         }
         focusCell(nr, nc); 
       };
       
       // Excel-like formula navigation: insert cell references when editing formulas
-      const insertCellRef = (targetR, targetC) => {
+      const insertCellRef = (deltaR, deltaC) => {
         e.preventDefault();
-        const ref = colLabel(targetC) + (targetR + 1);
+        
+        // Move virtual cursor
+        formulaVirtualCursor.r = Math.max(0, Math.min(rows-1, formulaVirtualCursor.r + deltaR));
+        formulaVirtualCursor.c = Math.max(0, Math.min(cols-1, formulaVirtualCursor.c + deltaC));
+        
+        const ref = colLabel(formulaVirtualCursor.c) + (formulaVirtualCursor.r + 1);
         const currentText = el.textContent;
         const selection = window.getSelection();
         
@@ -996,10 +1012,10 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Arrow key behavior: insert cell references when editing formulas
       if (isEditingFormula && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-        if (e.key === 'ArrowDown') return insertCellRef(r+1, c);
-        if (e.key === 'ArrowUp') return insertCellRef(r-1, c);
-        if (e.key === 'ArrowLeft') return insertCellRef(r, c-1);
-        if (e.key === 'ArrowRight') return insertCellRef(r, c+1);
+        if (e.key === 'ArrowDown') return insertCellRef(1, 0);
+        if (e.key === 'ArrowUp') return insertCellRef(-1, 0);
+        if (e.key === 'ArrowLeft') return insertCellRef(0, -1);
+        if (e.key === 'ArrowRight') return insertCellRef(0, 1);
       }
       
       // Normal navigation when not editing formulas or with modifiers
