@@ -274,7 +274,12 @@
 
     // Formula evaluation (simple & safe-ish)
     function rawValue(r,c){ return data[r]?.[c] ?? ''; }
-    function numeric(v){ const n = Number(v); return isFinite(n) ? n : 0; }
+    function isErr(v){ return v && typeof v==='object' && v.error; }
+    function numeric(v){
+      if(isErr(v)) return v;
+      const n = Number(v);
+      return isFinite(n) ? n : {error:'#VALUE!'};
+    }
     function flatten(args){
       const out=[];
       for(const a of args){
@@ -283,10 +288,27 @@
       }
       return out;
     }
-    function sumFn(args){ return flatten(args).reduce((a,b)=>a+b,0); }
-    function minFn(args){ const v=flatten(args); return v.length?Math.min(...v):0; }
-    function maxFn(args){ const v=flatten(args); return v.length?Math.max(...v):0; }
-    function avgFn(args){ const v=flatten(args); return v.length?sumFn(v)/v.length:0; }
+    function sumFn(args){
+      const v=flatten(args);
+      for(const x of v) if(isErr(x)) return x;
+      return v.reduce((a,b)=>a+b,0);
+    }
+    function minFn(args){
+      const v=flatten(args);
+      for(const x of v) if(isErr(x)) return x;
+      return v.length?Math.min(...v):0;
+    }
+    function maxFn(args){
+      const v=flatten(args);
+      for(const x of v) if(isErr(x)) return x;
+      return v.length?Math.max(...v):0;
+    }
+    function avgFn(args){
+      const v=flatten(args);
+      for(const x of v) if(isErr(x)) return x;
+      const s=sumFn(v);
+      return isErr(s)?s:(v.length?s/v.length:0);
+    }
     const fnMap = {SUM: sumFn, MIN: minFn, MAX: maxFn, AVERAGE: avgFn};
 
     function isBlankFormula(s){ return typeof s==='string' && /^=\s*$/.test(s); }
@@ -336,7 +358,9 @@
       function parseExpression(){
         let val=parseTerm();
         while(peek() && (peek().type==='+'||peek().type==='-')){
+          if(isErr(val)) return val;
           const op=consume(peek().type).type; const rhs=parseTerm();
+          if(isErr(rhs)) return rhs;
           if(Array.isArray(val)||Array.isArray(rhs)) throw new Error('Invalid range in expression');
           val = op==='+'? val+rhs : val-rhs;
         }
@@ -345,7 +369,9 @@
       function parseTerm(){
         let val=parseFactor();
         while(peek() && (peek().type==='*'||peek().type==='/')){
+          if(isErr(val)) return val;
           const op=consume(peek().type).type; const rhs=parseFactor();
+          if(isErr(rhs)) return rhs;
           if(Array.isArray(val)||Array.isArray(rhs)) throw new Error('Invalid range in expression');
           val = op==='*'? val*rhs : val/rhs;
         }
@@ -354,7 +380,7 @@
       function parseFactor(){
         const t=peek();
         if(t && t.type==='+'){ consume('+'); return parseFactor(); }
-        if(t && t.type==='-'){ consume('-'); const v=parseFactor(); return Array.isArray(v)?(()=>{throw new Error('Invalid range in expression');})(): -v; }
+        if(t && t.type==='-'){ consume('-'); const v=parseFactor(); if(isErr(v)) return v; return Array.isArray(v)?(()=>{throw new Error('Invalid range in expression');})(): -v; }
         return parsePrimary();
       }
       function parsePrimary(){
@@ -409,7 +435,9 @@
       if(isBlankFormula(raw)) return raw; // show '=' while user is typing
       if(typeof raw === 'string' && raw.startsWith('=')) {
         const v = valueAt(r,c);
-        return v === 'ERR' ? 'ERR' : String(v);
+        if(v === 'ERR') return 'ERR';
+        if(isErr(v)) return v.error;
+        return String(v);
       }
       return raw;
     }
@@ -716,6 +744,16 @@
       data[1][1]='=(1+2)*3';
       const prec = valueAt(1,1);
       results.push(prec===9 ? '✓ (1+2)*3 == 9' : `✗ (1+2)*3 expected 9 got ${prec}`);
+
+      // Added Test 11: Error propagation for non-numeric
+      rows=1; cols=3; data=createEmpty(rows,cols);
+      data[0][0]='a';
+      data[0][1]='=1+A1';
+      const err1 = valueAt(0,1);
+      results.push(err1 && err1.error==='#VALUE!' ? '✓ 1+A1 with A1="a" -> #VALUE!' : `✗ 1+A1 expected #VALUE! got ${String(err1)}`);
+      data[0][2]='=SUM(1,A1)';
+      const err2 = valueAt(0,2);
+      results.push(err2 && err2.error==='#VALUE!' ? '✓ SUM(1,A1) -> #VALUE!' : `✗ SUM(1,A1) expected #VALUE! got ${String(err2)}`);
 
       // Restore again
       rows=bakRows; cols=bakCols; data=bak; renderHeader(); renderBody();
