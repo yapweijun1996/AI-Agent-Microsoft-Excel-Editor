@@ -949,7 +949,14 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.addEventListener('keydown', (e)=>{
       const el = e.target.closest('.cell'); if (!el) return;
       const r = +el.dataset.r, c = +el.dataset.c;
-      const go = (nr, nc)=>{ e.preventDefault(); focusCell(nr, nc); };
+      const go = (nr, nc)=>{ 
+        e.preventDefault(); 
+        // Update current cell display before moving
+        if (e.key === 'Enter') {
+          el.textContent = displayValue(r, c);
+        }
+        focusCell(nr, nc); 
+      };
       if (e.key === 'Enter') return go(r + (e.shiftKey?-1:1), c);
       if (e.key === 'Tab')   return go(r, c + (e.shiftKey?-1:1));
       if (e.key === 'ArrowDown' && !e.shiftKey) return go(r+1, c);
