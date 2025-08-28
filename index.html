@@ -275,55 +275,113 @@
     // Formula evaluation (simple & safe-ish)
     function rawValue(r,c){ return data[r]?.[c] ?? ''; }
     function numeric(v){ const n = Number(v); return isFinite(n) ? n : 0; }
-
-    function sumFn(args){
-      let total = 0;
+    function flatten(args){
+      const out=[];
       for(const a of args){
-        if(typeof a === 'number'){ total += a; continue; }
-        if(typeof a === 'string'){
-          // Possibly a range like "A1:B3"
-          const range = /^([A-Z]+\d+):([A-Z]+\d+)$/.exec(a.trim().toUpperCase());
-          if(range){
-            const a1 = parseA1(range[1]), a2 = parseA1(range[2]);
-            if(a1 && a2){
-              const r1=Math.min(a1.r,a2.r), r2=Math.max(a1.r,a2.r);
-              const c1=Math.min(a1.c,a2.c), c2=Math.max(a1.c,a2.c);
-              for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) total += numeric(valueAt(r,c));
-              continue;
-            }
-          }
-          // Single ref?
-          const p = parseA1(a);
-          if(p){ total += numeric(valueAt(p.r,p.c)); continue; }
-          total += numeric(a);
-        }
+        if(Array.isArray(a)) out.push(...a);
+        else out.push(numeric(a));
       }
-      return total;
+      return out;
     }
+    function sumFn(args){ return flatten(args).reduce((a,b)=>a+b,0); }
+    function minFn(args){ const v=flatten(args); return v.length?Math.min(...v):0; }
+    function maxFn(args){ const v=flatten(args); return v.length?Math.max(...v):0; }
+    function avgFn(args){ const v=flatten(args); return v.length?sumFn(v)/v.length:0; }
+    const fnMap = {SUM: sumFn, MIN: minFn, MAX: maxFn, AVERAGE: avgFn};
 
     function isBlankFormula(s){ return typeof s==='string' && /^=\s*$/.test(s); }
 
+    function tokenize(str){
+      const tokens=[]; let i=0;
+      const len=str.length;
+      const isDigit=ch=>/\d/.test(ch);
+      const isAlpha=ch=>/[A-Za-z]/.test(ch);
+      while(i<len){
+        const ch=str[i];
+        if(ch===" "||ch==="\t"||ch==="\n"||ch==="\r"){ i++; continue; }
+        if("+-*/(),".includes(ch)){ tokens.push({type:ch}); i++; continue; }
+        if(isDigit(ch)){
+          let s=i; while(isDigit(str[i])) i++; if(str[i]==='.') { i++; while(isDigit(str[i])) i++; }
+          tokens.push({type:'num', value:parseFloat(str.slice(s,i))});
+          continue;
+        }
+        if(isAlpha(ch)){
+          let s=i; while(isAlpha(str[i])) i++; const letters=str.slice(s,i).toUpperCase();
+          let j=i; while(isDigit(str[j])) j++;
+          if(j>i){
+            const cell1=parseA1(letters+str.slice(i,j)); i=j;
+            if(str[i]===':'){
+              i++; let s2=i; while(isAlpha(str[i])) i++; const letters2=str.slice(s2,i).toUpperCase();
+              let k=i; while(isDigit(str[k])) k++;
+              if(k===i) throw new Error('Invalid range');
+              const cell2=parseA1(letters2+str.slice(i,k)); i=k;
+              tokens.push({type:'range', start:cell1, end:cell2});
+            }else{
+              tokens.push({type:'cell', pos:cell1});
+            }
+            continue;
+          }
+          tokens.push({type:'id', value:letters});
+          continue;
+        }
+        throw new Error('Unexpected character '+ch);
+      }
+      return tokens;
+    }
+
     function evaluateFormula(expr){
-      const trimmed = expr.trim();
-      if(trimmed==='') return '';
-      // Normalize SUM spacing
-      let js = trimmed.replace(/SUM\s*\(/gi, 'SUM(');
-      // Convert SUM(...) to helper while keeping raw refs/ranges
-      js = js.replace(/SUM\s*\(([^()]*)\)/gi, (_,inner)=>{
-        const parts = inner.split(',').map(s=>s.trim()).filter(Boolean)
-          .map(tok=>/^[0-9.]+$/.test(tok) ? tok : JSON.stringify(tok));
-        return `__SUM__([${parts.join(',')}])`;
-      });
-      // Replace standalone cell refs (skip quotes and A1:B2 ranges)
-      js = js.replace(/"[^"]*"|'[^']*'|(?<![A-Z0-9]:)\b([A-Z]+[0-9]+)\b(?!:[A-Z0-9])/gi,
-        (m,ref)=>{
-          if(!ref) return m;
-          const p = parseA1(ref);
-          return numeric(valueAt(p.r,p.c));
-        });
-      if(!/^[0-9+\-*/().,\s"':A-Za-z_\[\]]+$/.test(js)) throw new Error('Unsafe formula');
-      const f = new Function('__SUM__', `return (${js});`);
-      return f(sumFn);
+      const tokens=tokenize(expr.trim()); let i=0;
+      function peek(){ return tokens[i]; }
+      function consume(type){ const t=tokens[i]; if(!t||t.type!==type) throw new Error('Expected '+type); i++; return t; }
+      function parseExpression(){
+        let val=parseTerm();
+        while(peek() && (peek().type==='+'||peek().type==='-')){
+          const op=consume(peek().type).type; const rhs=parseTerm();
+          if(Array.isArray(val)||Array.isArray(rhs)) throw new Error('Invalid range in expression');
+          val = op==='+'? val+rhs : val-rhs;
+        }
+        return val;
+      }
+      function parseTerm(){
+        let val=parseFactor();
+        while(peek() && (peek().type==='*'||peek().type==='/')){
+          const op=consume(peek().type).type; const rhs=parseFactor();
+          if(Array.isArray(val)||Array.isArray(rhs)) throw new Error('Invalid range in expression');
+          val = op==='*'? val*rhs : val/rhs;
+        }
+        return val;
+      }
+      function parseFactor(){
+        const t=peek();
+        if(t && t.type==='+'){ consume('+'); return parseFactor(); }
+        if(t && t.type==='-'){ consume('-'); const v=parseFactor(); return Array.isArray(v)?(()=>{throw new Error('Invalid range in expression');})(): -v; }
+        return parsePrimary();
+      }
+      function parsePrimary(){
+        const t=peek(); if(!t) throw new Error('Unexpected end');
+        if(t.type==='num'){ consume('num'); return t.value; }
+        if(t.type==='cell'){ consume('cell'); return numeric(valueAt(t.pos.r,t.pos.c)); }
+        if(t.type==='range'){
+          consume('range'); const out=[];
+          const r1=Math.min(t.start.r,t.end.r), r2=Math.max(t.start.r,t.end.r);
+          const c1=Math.min(t.start.c,t.end.c), c2=Math.max(t.start.c,t.end.c);
+          for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) out.push(numeric(valueAt(r,c)));
+          return out;
+        }
+        if(t.type==='id') return parseFunctionCall();
+        if(t.type==='('){ consume('('); const v=parseExpression(); consume(')'); return v; }
+        throw new Error('Unexpected token');
+      }
+      function parseFunctionCall(){
+        const name=consume('id').value; consume('(');
+        const args=[]; if(peek() && peek().type!==')'){ do{ args.push(parseExpression()); if(peek() && peek().type===',') consume(','); else break; }while(true); }
+        consume(')'); const fn=fnMap[name]; if(!fn) throw new Error(`Unknown function ${name}`);
+        return fn(args);
+      }
+      const result=parseExpression();
+      if(i<tokens.length) throw new Error('Unexpected token');
+      if(Array.isArray(result)) throw new Error('Invalid range in expression');
+      return result;
     }
 
     function setError(r,c,msg){ errMap.set(`${r},${c}`, msg); }
@@ -646,6 +704,18 @@
       // Added Test 8: Whitespace-only after '=' preserved
       data[0][0]='=   '; const blank2 = valueAt(0,0);
       results.push(/^=\s*$/.test(blank2) ? '✓ Whitespace-only formula kept' : `✗ '=   ' should be kept, got ${blank2}`);
+
+      // Added Test 9: Nested functions & MIN/MAX/AVERAGE
+      rows=2; cols=2; data=createEmpty(rows,cols);
+      data[0][0]='5'; data[0][1]='15';
+      data[1][0]='=SUM(MIN(A1:B1), MAX(A1:B1), AVERAGE(A1:B1))';
+      const nested = valueAt(1,0);
+      results.push(nested===30 ? '✓ Nested MIN/MAX/AVERAGE' : `✗ Nested functions expected 30 got ${nested}`);
+
+      // Added Test 10: Parentheses precedence
+      data[1][1]='=(1+2)*3';
+      const prec = valueAt(1,1);
+      results.push(prec===9 ? '✓ (1+2)*3 == 9' : `✗ (1+2)*3 expected 9 got ${prec}`);
 
       // Restore again
       rows=bakRows; cols=bakCols; data=bak; renderHeader(); renderBody();
