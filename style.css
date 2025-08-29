@@ -46,6 +46,7 @@
   .debug{margin-top:10px;background:#f1f3f4;border:1px solid #dadce0;border-radius:12px;padding:8px;max-height:20vh;overflow:auto}
   .debug h3{margin:0 0 6px 0;font-size:12px;color:#202124}
   .debug pre{margin:0;font-size:12px;white-space:pre-wrap;word-break:break-word;color:#202124}
+
   .debug .row{opacity:.9}
   @media (max-width:900px){th, td{min-width:80px} header{gap:.4rem} header h1{display:none}}
 
