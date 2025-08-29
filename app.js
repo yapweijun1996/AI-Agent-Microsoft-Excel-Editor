@@ -39,23 +39,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sheet tab helpers
     function renderTabs(){
       sheetTabs.innerHTML='';
-      sheets.forEach((s,i)=>{
-        const tab=document.createElement('div');
-        tab.className='sheetTab'+(i===activeSheetIndex?' active':'');
-        tab.textContent=s.name;
-        tab.dataset.idx=i;
-        const close=document.createElement('span');
-        close.textContent='×';
-        close.className='close';
-        tab.appendChild(close);
-        sheetTabs.appendChild(tab);
-      });
       const add=document.createElement('button');
       add.className='sheetTab add';
       add.type='button';
       add.setAttribute('aria-label','Add new sheet');
       add.textContent='+';
       sheetTabs.appendChild(add);
+      sheets.forEach((s,i)=>{
+        const tab=document.createElement('button');
+        tab.type='button';
+        tab.className='sheetTab'+(i===activeSheetIndex?' active':'');
+        tab.textContent=s.name;
+        tab.dataset.idx=i;
+        if(sheets.length>1){
+          const close=document.createElement('span');
+          close.textContent='×';
+          close.className='close';
+          close.setAttribute('aria-label','Close sheet');
+          tab.appendChild(close);
+        }
+        sheetTabs.appendChild(tab);
+      });
     }
     function saveActiveState(){
       const s=sheets[activeSheetIndex];
