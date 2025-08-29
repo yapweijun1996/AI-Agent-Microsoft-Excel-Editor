@@ -948,6 +948,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Virtual cursor for formula navigation
     let formulaVirtualCursor = { r: 0, c: 0, active: false };
+    // Track which cell initiated formula edit to avoid reactivating cursor when
+    // caret navigation temporarily disables it
+    let formulaCursorCell = null;
+
+    function updateFormulaCursorHighlight(){
+      tbody.querySelectorAll('.cell.formula-cursor').forEach(c=>c.classList.remove('formula-cursor'));
+      if(formulaVirtualCursor.active){
+        const refCell = tbody.querySelector(`.cell[data-r="${formulaVirtualCursor.r}"][data-c="${formulaVirtualCursor.c}"]`);
+        if(refCell) refCell.classList.add('formula-cursor');
+      }
+    }
 
     tbody.addEventListener('keydown', (e)=>{
       const el = e.target.closest('.cell'); if (!el) return;
@@ -956,12 +967,17 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if we're editing a formula (starts with =)
       const isEditingFormula = el.textContent.startsWith('=');
       
-      // Reset virtual cursor when starting formula edit
-      if (isEditingFormula && !formulaVirtualCursor.active) {
-        formulaVirtualCursor = { r, c, active: true };
-      } else if (!isEditingFormula) {
+      // Reset virtual cursor when starting formula edit on a new cell
+      if (isEditingFormula) {
+        if (!formulaCursorCell || formulaCursorCell.r !== r || formulaCursorCell.c !== c) {
+          formulaVirtualCursor = { r, c, active: true };
+          formulaCursorCell = { r, c };
+        }
+      } else {
         formulaVirtualCursor.active = false;
+        formulaCursorCell = null;
       }
+      updateFormulaCursorHighlight();
       
       const go = (nr, nc)=>{ 
         e.preventDefault(); 
@@ -969,41 +985,75 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') {
           el.textContent = displayValue(r, c);
           formulaVirtualCursor.active = false; // Reset on Enter
+          updateFormulaCursorHighlight();
         }
-        focusCell(nr, nc); 
+        focusCell(nr, nc);
       };
       
       // Excel-like formula navigation: insert cell references when editing formulas
       const insertCellRef = (deltaR, deltaC) => {
+        // Compute target location before clamping
+        const targetR = formulaVirtualCursor.r + deltaR;
+        const targetC = formulaVirtualCursor.c + deltaC;
+
+        const newR = Math.max(0, Math.min(rows - 1, targetR));
+        const newC = Math.max(0, Math.min(cols - 1, targetC));
+
+        // If clamping results in no movement, handle edges specially
+        if (newR === formulaVirtualCursor.r && newC === formulaVirtualCursor.c) {
+          if (deltaC !== 0) {
+            const selection = window.getSelection();
+            if (deltaC < 0 && selection.rangeCount > 0) {
+              const range = selection.getRangeAt(0);
+              // Prevent default to avoid leaving the cell when at the formula start
+              if (range.startOffset <= 1) {
+                e.preventDefault();
+                return;
+              }
+            }
+            // Allow caret navigation horizontally by deactivating the virtual cursor
+            formulaVirtualCursor.active = false;
+            updateFormulaCursorHighlight();
+          } else {
+            // Vertical edges: keep focus in cell to avoid row header selection
+            e.preventDefault();
+          }
+          return;
+        }
+
         e.preventDefault();
-        
+
         // Move virtual cursor
-        formulaVirtualCursor.r = Math.max(0, Math.min(rows-1, formulaVirtualCursor.r + deltaR));
-        formulaVirtualCursor.c = Math.max(0, Math.min(cols-1, formulaVirtualCursor.c + deltaC));
-        
+        formulaVirtualCursor.r = newR;
+        formulaVirtualCursor.c = newC;
+        updateFormulaCursorHighlight();
+
         const ref = colLabel(formulaVirtualCursor.c) + (formulaVirtualCursor.r + 1);
         const currentText = el.textContent;
         const selection = window.getSelection();
-        
+
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          const newText = currentText.slice(0, range.startOffset) + ref + currentText.slice(range.endOffset);
+          // Prevent replacing the leading '=' when caret is before it
+          const start = Math.max(1, range.startOffset);
+          const end = Math.max(1, range.endOffset);
+          const newText = currentText.slice(0, start) + ref + currentText.slice(end);
           el.textContent = newText;
-          
+
           // Update data and formula bar
           data[r][c].value = newText;
           formulaBar.value = newText;
-          
+
           // Select the inserted reference so subsequent arrow presses replace it
-          const start = range.startOffset;
-          const end = start + ref.length;
+          const selStart = start;
+          const selEnd = selStart + ref.length;
           const textNode = el.firstChild || el;
           const newRange = document.createRange();
-          newRange.setStart(textNode, start);
-          newRange.setEnd(textNode, Math.min(end, textNode.textContent?.length || 0));
+          newRange.setStart(textNode, selStart);
+          newRange.setEnd(textNode, Math.min(selEnd, textNode.textContent?.length || 0));
           selection.removeAllRanges();
           selection.addRange(newRange);
-          
+
           recalc();
         }
       };
@@ -1012,11 +1062,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Tab')   return go(r, c + (e.shiftKey?-1:1));
       
       // Arrow key behavior: insert cell references when editing formulas
-      if (isEditingFormula && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      if (isEditingFormula && formulaVirtualCursor.active && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         if (e.key === 'ArrowDown') return insertCellRef(1, 0);
         if (e.key === 'ArrowUp') return insertCellRef(-1, 0);
         if (e.key === 'ArrowLeft') return insertCellRef(0, -1);
         if (e.key === 'ArrowRight') return insertCellRef(0, 1);
+      }
+
+      // When formula cursor is inactive, still guard against exiting to row headers
+      if (isEditingFormula && !formulaVirtualCursor.active && e.key === 'ArrowLeft' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0 && sel.getRangeAt(0).startOffset <= 1) {
+          e.preventDefault();
+          return;
+        }
       }
       
       // Normal navigation when not editing formulas or with modifiers

@@ -21,6 +21,7 @@
   td{padding:0}
   td .cell{padding:.45rem .5rem;outline:none;min-height:32px}
   td .cell:focus{background:var(--sel);box-shadow:inset 0 0 0 2px var(--accent);outline:none}
+  td .cell.formula-cursor{outline:2px dotted var(--accent);outline-offset:-2px}
   tr:nth-child(even) td{background:var(--grid)}
   tr:nth-child(odd) td{background:#0e1430}
   .cell.err{background:var(--err)!important;border:1px solid var(--errBorder)}
