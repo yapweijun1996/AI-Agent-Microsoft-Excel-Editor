@@ -11,61 +11,62 @@
   <header>
     <div class="header-main">
       <h1>Mini Excel Editor</h1>
+
+      <nav id="headerNav" class="header-nav" aria-expanded="false">
+        <div class="group" role="group" aria-label="File">
+          <button id="newSheet" title="New blank sheet">New</button>
+        </div>
+
+        <div class="group" role="group" aria-label="Grid">
+          <button id="addRow" title="Add a row">+ Row</button>
+          <button id="addCol" title="Add a column">+ Col</button>
+          <button id="delRow" title="Delete last row">– Row</button>
+          <button id="delCol" title="Delete last column">– Col</button>
+        </div>
+
+        <div class="group" role="group" aria-label="Cell formatting">
+          <button id="boldBtn" title="Bold" aria-pressed="false"><b>B</b></button>
+          <button id="italicBtn" title="Italic" aria-pressed="false"><i>I</i></button>
+          <label for="fillColor" class="visually-hidden">Fill Color</label>
+          <input id="fillColor" type="color" title="Fill color" />
+          <button id="undoBtn" title="Undo">Undo</button>
+          <button id="redoBtn" title="Redo">Redo</button>
+        </div>
+
+        <label for="formulaBar" class="visually-hidden">Formula</label>
+        <input id="formulaBar" type="text" placeholder="fx" />
+
+        <div class="toolbar">
+          <label class="btn-file" title="Open CSV/XLSX">
+            Open
+            <input id="fileInput" type="file" accept=".csv, text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xlsx" />
+          </label>
+
+          <div class="menu">
+            <button class="menu-trigger" aria-haspopup="true" aria-expanded="false" title="Export options">Export ▾</button>
+            <div class="menu-items" role="menu" aria-label="Export">
+              <button id="saveCSV" title="Download as CSV" role="menuitem">Export CSV</button>
+              <button id="saveXLSX" title="Download as XLSX" role="menuitem">Export XLSX</button>
+            </div>
+          </div>
+
+          <div class="menu">
+            <button class="menu-trigger" aria-haspopup="true" aria-expanded="false" title="Advanced tools">Advanced ▾</button>
+            <div class="menu-items right" role="menu" aria-label="Advanced">
+              <button id="runTests" title="Quick self-test" role="menuitem">Run Tests</button>
+              <button id="toggleDebug" title="Show/hide debug log" role="menuitem">Debug</button>
+              <button id="copyDebug" title="Copy debug report" role="menuitem">Copy Report</button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
       <button id="hamburgerBtn" class="hamburger" aria-label="Toggle menu" aria-controls="headerNav" aria-expanded="false">
         <span></span>
         <span></span>
         <span></span>
       </button>
     </div>
-
-    <nav id="headerNav" class="header-nav">
-      <div class="group" role="group" aria-label="File">
-        <button id="newSheet" title="New blank sheet">New</button>
-      </div>
-
-      <div class="group" role="group" aria-label="Grid">
-        <button id="addRow" title="Add a row">+ Row</button>
-        <button id="addCol" title="Add a column">+ Col</button>
-        <button id="delRow" title="Delete last row">– Row</button>
-        <button id="delCol" title="Delete last column">– Col</button>
-      </div>
-
-      <div class="group" role="group" aria-label="Cell formatting">
-        <button id="boldBtn" title="Bold"><b>B</b></button>
-        <button id="italicBtn" title="Italic"><i>I</i></button>
-        <label for="fillColor" class="visually-hidden">Fill Color</label>
-        <input id="fillColor" type="color" title="Fill color" />
-        <button id="undoBtn" title="Undo">Undo</button>
-        <button id="redoBtn" title="Redo">Redo</button>
-      </div>
-
-      <label for="formulaBar" class="visually-hidden">Formula</label>
-      <input id="formulaBar" type="text" placeholder="fx" />
-
-      <div class="toolbar">
-        <label class="btn-file" title="Open CSV/XLSX">
-          Open
-          <input id="fileInput" type="file" accept=".csv, text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xlsx" />
-        </label>
-
-        <div class="menu">
-          <button class="menu-trigger" aria-haspopup="true" aria-expanded="false" title="Export options">Export ▾</button>
-          <div class="menu-items" role="menu" aria-label="Export">
-            <button id="saveCSV" title="Download as CSV" role="menuitem">Export CSV</button>
-            <button id="saveXLSX" title="Download as XLSX" role="menuitem">Export XLSX</button>
-          </div>
-        </div>
-
-        <div class="menu">
-          <button class="menu-trigger" aria-haspopup="true" aria-expanded="false" title="Advanced tools">Advanced ▾</button>
-          <div class="menu-items right" role="menu" aria-label="Advanced">
-            <button id="runTests" title="Quick self-test" role="menuitem">Run Tests</button>
-            <button id="toggleDebug" title="Show/hide debug log" role="menuitem">Debug</button>
-            <button id="copyDebug" title="Copy debug report" role="menuitem">Copy Report</button>
-          </div>
-        </div>
-      </div>
-    </nav>
   </header>
 
   <div class="wrap">

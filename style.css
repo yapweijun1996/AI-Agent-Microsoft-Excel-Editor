@@ -2,8 +2,12 @@
   *{box-sizing:border-box}
   .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  header{display:flex;gap:.5rem;align-items:center;padding:.5rem 1rem;border-bottom:1px solid #dadce0;background:var(--panel)}
-  header h1{font-size:16px;margin:0 1rem 0 0;font-weight:500;letter-spacing:.2px;color:var(--text)}
+  header{border-bottom:1px solid #dadce0;background:var(--panel)}
+  .header-main{display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;width:100%}
+  header h1{font-size:16px;margin:0;font-weight:500;letter-spacing:.2px;color:var(--text);white-space:nowrap}
+  .header-nav{display:flex;align-items:center;gap:.75rem;flex:1}
+  header .group{display:flex;align-items:center;gap:.5rem;border-right:1px solid #dadce0;padding-right:.75rem;margin-right:.75rem}
+
   button, .btn-file, select, input[type="color"]{background:#f1f3f4;border:1px solid #dadce0;border-radius:4px;padding:.4rem .75rem;color:var(--text);cursor:pointer}
   button:hover,.btn-file:hover, select:hover, input[type="color"]:hover{background:#e8eaed}
   button[disabled]{opacity:.55;cursor:not-allowed}
@@ -11,6 +15,7 @@
   .btn-file{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:.5rem}
   .btn-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
   .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-left:auto}
+
   #formulaBar{flex:1;background:#fff;border:1px solid #dadce0;border-radius:4px;padding:.4rem;color:var(--text)}
   .wrap{padding:12px}
   .sheet{background:var(--panel);border:1px solid #dadce0;border-radius:0;overflow:auto;max-height:70vh}
@@ -50,20 +55,20 @@
   .debug pre{margin:0;font-size:12px;white-space:pre-wrap;word-break:break-word;color:#202124}
 
   .debug .row{opacity:.9}
-  @media (max-width:900px){th, td{min-width:80px} header{gap:.4rem} header h1{display:none}}
+@media (max-width:900px){th, td{min-width:80px} .header-main{gap:.4rem} header h1{display:none}}
 
 /* Medium mobile devices - 600px and below */
 @media (max-width:600px){
   body{font-size:13px}
-  header{padding:.5rem;flex-direction:column;align-items:stretch}
+  .header-main{padding:.5rem;flex-wrap:wrap;align-items:center}
   header h1{font-size:14px;margin:0}
-  
+
   /* Show hamburger menu */
-  .hamburger{display:flex}
-  .header-nav{display:none;flex-direction:column;gap:.5rem;margin-top:.5rem;padding-top:.5rem;border-top:1px solid #dadce0}
+  .hamburger{display:flex;margin-left:auto}
+  .header-nav{display:none;flex-direction:column;gap:.5rem;width:100%;margin-top:.5rem;padding-top:.5rem;border-top:1px solid #dadce0}
   .header-nav.open{display:flex}
-  
-  header .group{gap:.3rem;justify-content:center;flex-wrap:wrap;margin:.25rem 0}
+
+  header .group{gap:.3rem;justify-content:center;flex-wrap:wrap;margin:.25rem 0;border-right:0;padding-right:0;margin-right:0}
   button, .btn-file, select, input[type="color"]{padding:.4rem .6rem;font-size:13px;border-radius:8px}
   #formulaBar{padding:.4rem;font-size:13px;width:100%;margin:.25rem 0}
   .toolbar{gap:.3rem;justify-content:center;flex-wrap:wrap;margin:.25rem 0}
@@ -86,15 +91,15 @@
 /* Small mobile devices - 400px and below */
 @media (max-width:400px){
   body{font-size:12px}
-  header{padding:.4rem;flex-direction:column;align-items:stretch}
+  .header-main{padding:.4rem;flex-wrap:wrap;align-items:center}
   header h1{font-size:13px;margin:0}
-  
+
   /* Hamburger menu styles for smallest screens */
   .hamburger{display:flex;width:26px;height:26px}
   .hamburger span{height:2px;margin:2px 0}
-  .header-nav{gap:.4rem;margin-top:.4rem;padding-top:.4rem}
-  
-  header .group{justify-content:center;flex-wrap:wrap;margin:.2rem 0}
+  .header-nav{gap:.4rem;width:100%;margin-top:.4rem;padding-top:.4rem}
+
+  header .group{justify-content:center;flex-wrap:wrap;margin:.2rem 0;border-right:0;padding-right:0;margin-right:0}
   button, .btn-file, select, input[type="color"]{padding:.3rem .5rem;font-size:12px;border-radius:6px}
   #formulaBar{padding:.3rem;font-size:12px;width:100%;margin:.2rem 0}
   .toolbar{gap:.2rem;justify-content:center;flex-wrap:wrap;margin:.2rem 0}
@@ -118,18 +123,15 @@
 
 
 /* --- Hamburger menu and header navigation --- */
-.header-main{display:flex;justify-content:space-between;align-items:center;width:100%}
 .hamburger{display:none;flex-direction:column;justify-content:center;width:30px;height:30px;background:transparent;border:0;cursor:pointer;padding:0}
 .hamburger span{display:block;height:3px;width:100%;background:var(--text);margin:3px 0;transition:all 0.3s ease;border-radius:2px}
 .hamburger.active span:nth-child(1){transform:rotate(45deg) translate(6px, 6px)}
 .hamburger.active span:nth-child(2){opacity:0}
 .hamburger.active span:nth-child(3){transform:rotate(-45deg) translate(6px, -6px)}
 
-.header-nav{display:flex;gap:.5rem;align-items:center;flex:1}
 .header-nav.open{display:flex}
 
 /* --- Toolbar grouping and dropdown menus --- */
-header .group{display:inline-flex;gap:.5rem;align-items:center}
 .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-left:auto;align-items:center}
 .menu{position:relative;display:inline-block}
 .menu .menu-trigger{position:relative;padding-right:1.6rem}
