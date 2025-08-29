@@ -984,8 +984,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // If clamping results in no movement, handle edges specially
         if (newR === formulaVirtualCursor.r && newC === formulaVirtualCursor.c) {
-          // Horizontal edges: allow caret navigation and exit formula mode
           if (deltaC !== 0) {
+            const selection = window.getSelection();
+            if (deltaC < 0 && selection.rangeCount > 0) {
+              const range = selection.getRangeAt(0);
+              // Prevent default to avoid leaving the cell when at the formula start
+              if (range.startOffset <= 1) {
+                e.preventDefault();
+                return;
+              }
+            }
+            // Allow caret navigation horizontally by deactivating the virtual cursor
+
             formulaVirtualCursor.active = false;
           } else {
             // Vertical edges: keep focus in cell to avoid row header selection
