@@ -979,12 +979,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetR = formulaVirtualCursor.r + deltaR;
         const targetC = formulaVirtualCursor.c + deltaC;
 
-        const newR = Math.max(0, Math.min(rows-1, targetR));
-        const newC = Math.max(0, Math.min(cols-1, targetC));
+        const newR = Math.max(0, Math.min(rows - 1, targetR));
+        const newC = Math.max(0, Math.min(cols - 1, targetC));
 
-        // If clamping results in no movement, allow default caret navigation
+        // If clamping results in no movement, handle edges specially
         if (newR === formulaVirtualCursor.r && newC === formulaVirtualCursor.c) {
-          formulaVirtualCursor.active = false;
+          // Horizontal edges: allow caret navigation and exit formula mode
+          if (deltaC !== 0) {
+            formulaVirtualCursor.active = false;
+          } else {
+            // Vertical edges: keep focus in cell to avoid row header selection
+            e.preventDefault();
+          }
           return;
         }
 
