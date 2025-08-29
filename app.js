@@ -952,6 +952,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // caret navigation temporarily disables it
     let formulaCursorCell = null;
 
+    function updateFormulaCursorHighlight(){
+      tbody.querySelectorAll('.cell.formula-cursor').forEach(c=>c.classList.remove('formula-cursor'));
+      if(formulaVirtualCursor.active){
+        const refCell = tbody.querySelector(`.cell[data-r="${formulaVirtualCursor.r}"][data-c="${formulaVirtualCursor.c}"]`);
+        if(refCell) refCell.classList.add('formula-cursor');
+      }
+    }
+
     tbody.addEventListener('keydown', (e)=>{
       const el = e.target.closest('.cell'); if (!el) return;
       const r = +el.dataset.r, c = +el.dataset.c;
@@ -969,6 +977,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formulaVirtualCursor.active = false;
         formulaCursorCell = null;
       }
+      updateFormulaCursorHighlight();
       
       const go = (nr, nc)=>{ 
         e.preventDefault(); 
@@ -976,8 +985,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') {
           el.textContent = displayValue(r, c);
           formulaVirtualCursor.active = false; // Reset on Enter
+          updateFormulaCursorHighlight();
         }
-        focusCell(nr, nc); 
+        focusCell(nr, nc);
       };
       
       // Excel-like formula navigation: insert cell references when editing formulas
@@ -1002,8 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
               }
             }
             // Allow caret navigation horizontally by deactivating the virtual cursor
-
             formulaVirtualCursor.active = false;
+            updateFormulaCursorHighlight();
           } else {
             // Vertical edges: keep focus in cell to avoid row header selection
             e.preventDefault();
@@ -1016,6 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Move virtual cursor
         formulaVirtualCursor.r = newR;
         formulaVirtualCursor.c = newC;
+        updateFormulaCursorHighlight();
 
         const ref = colLabel(formulaVirtualCursor.c) + (formulaVirtualCursor.r + 1);
         const currentText = el.textContent;
