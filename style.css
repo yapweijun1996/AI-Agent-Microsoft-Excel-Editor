@@ -36,12 +36,14 @@
   .danger{color:#d93025}
   .ok{color:#188038}
 .sheetTabsBar{border-top:1px solid #dadce0;background:var(--panel);margin-top:4px}
-.sheetTabs{display:flex;gap:.25rem;align-items:center;padding:.25rem .5rem}
-.sheetTab{display:flex;align-items:center;gap:.25rem;padding:.3rem .8rem;background:#e8eaed;border:1px solid #dadce0;border-radius:4px 4px 0 0;cursor:pointer;position:relative;}
-.sheetTab.active{background:var(--panel);border-bottom:1px solid var(--panel);box-shadow:0 -2px 0 0 var(--accent) inset;}
+.sheetTabs{display:flex;align-items:center;gap:2px;padding:4px;overflow-x:auto}
+.sheetTab{display:flex;align-items:center;gap:.25rem;padding:.25rem .75rem;background:#e8eaed;border:1px solid transparent;border-radius:4px 4px 0 0;color:var(--muted);cursor:pointer}
+.sheetTab.active{background:var(--panel);color:var(--text);border-color:#dadce0;border-bottom:1px solid var(--panel);box-shadow:0 -2px 0 0 var(--accent) inset}
 .sheetTab .close{margin-left:.25rem;font-weight:600;cursor:pointer;opacity:0;transition:opacity .2s}
 .sheetTab:hover .close{opacity:.6}
-.sheetTab.add{font-weight:600;padding:.3rem .6rem}
+.sheetTab.add{padding:0;width:24px;height:24px;border-radius:50%;background:transparent;color:var(--muted);border:0}
+.sheetTab.add:hover{background:#e8eaed}
+
 .sheetTab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .debug{margin-top:10px;background:#f1f3f4;border:1px solid #dadce0;border-radius:12px;padding:8px;max-height:20vh;overflow:auto}
   .debug h3{margin:0 0 6px 0;font-size:12px;color:#202124}
