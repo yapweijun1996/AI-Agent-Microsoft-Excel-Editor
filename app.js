@@ -40,14 +40,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTabs(){
       sheetTabs.innerHTML='';
       sheets.forEach((s,i)=>{
-        const tab=document.createElement('div');
+        const tab=document.createElement('button');
+        tab.type='button';
         tab.className='sheetTab'+(i===activeSheetIndex?' active':'');
         tab.textContent=s.name;
         tab.dataset.idx=i;
-        const close=document.createElement('span');
-        close.textContent='×';
-        close.className='close';
-        tab.appendChild(close);
+        if(sheets.length>1){
+          const close=document.createElement('span');
+          close.textContent='×';
+          close.className='close';
+          close.setAttribute('aria-label','Close sheet');
+          tab.appendChild(close);
+        }
         sheetTabs.appendChild(tab);
       });
       const add=document.createElement('button');
