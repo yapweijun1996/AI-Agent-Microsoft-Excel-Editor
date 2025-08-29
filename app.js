@@ -39,23 +39,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sheet tab helpers
     function renderTabs(){
       sheetTabs.innerHTML='';
-      sheets.forEach((s,i)=>{
-        const tab=document.createElement('div');
-        tab.className='sheetTab'+(i===activeSheetIndex?' active':'');
-        tab.textContent=s.name;
-        tab.dataset.idx=i;
-        const close=document.createElement('span');
-        close.textContent='×';
-        close.className='close';
-        tab.appendChild(close);
-        sheetTabs.appendChild(tab);
-      });
       const add=document.createElement('button');
       add.className='sheetTab add';
       add.type='button';
       add.setAttribute('aria-label','Add new sheet');
       add.textContent='+';
       sheetTabs.appendChild(add);
+      sheets.forEach((s,i)=>{
+        const tab=document.createElement('button');
+        tab.type='button';
+        tab.className='sheetTab'+(i===activeSheetIndex?' active':'');
+        tab.textContent=s.name;
+        tab.dataset.idx=i;
+        if(sheets.length>1){
+          const close=document.createElement('span');
+          close.textContent='×';
+          close.className='close';
+          close.setAttribute('aria-label','Close sheet');
+          tab.appendChild(close);
+        }
+        sheetTabs.appendChild(tab);
+      });
     }
     function saveActiveState(){
       const s=sheets[activeSheetIndex];
@@ -417,6 +421,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if(fillColorInput) fillColorInput.value = cell.bgColor || '#ffffff';
         if(boldBtn) boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
         if(italicBtn) italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
+
+        // Highlight the active cell even when focus moves elsewhere
+        tbody.querySelector('.cell.active')?.classList.remove('active');
+        const activeEl = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        activeEl?.classList.add('active');
 
         // Highlight row/column headers for the active cell
         if (typeof lastHeader !== 'undefined') {
@@ -942,7 +951,11 @@ document.addEventListener('DOMContentLoaded', () => {
         r = Math.max(0, Math.min(rows-1, r));
         c = Math.max(0, Math.min(cols-1, c));
         const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-        if (el){ el.focus(); placeCaretEnd(el); }
+        if (el){
+          el.focus();
+          placeCaretEnd(el);
+          el.scrollIntoView({block:'nearest', inline:'nearest'});
+        }
         setActiveCell(r,c);
       }
     function placeCaretEnd(el){
@@ -1087,6 +1100,25 @@ document.addEventListener('DOMContentLoaded', () => {
       // Normal navigation when not editing formulas or with modifiers
       if (e.key === 'ArrowDown' && !e.shiftKey) return go(r+1, c);
       if (e.key === 'ArrowUp'   && !e.shiftKey) return go(r-1, c);
+      if (e.key === 'ArrowLeft' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isEditingFormula){
+        const sel = window.getSelection();
+        if(sel && sel.rangeCount){
+          const range = sel.getRangeAt(0);
+          if(sel.isCollapsed && range.startOffset===0) return go(r, c-1);
+        } else {
+          return go(r, c-1);
+        }
+      }
+      if (e.key === 'ArrowRight' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isEditingFormula){
+        const sel = window.getSelection();
+        const len = (el.textContent||'').length;
+        if(sel && sel.rangeCount){
+          const range = sel.getRangeAt(0);
+          if(sel.isCollapsed && range.endOffset===len) return go(r, c+1);
+        } else {
+          return go(r, c+1);
+        }
+      }
       if (e.key === 'ArrowLeft' && (e.ctrlKey||e.metaKey)) return go(r, c-1);
       if (e.key === 'ArrowRight'&& (e.ctrlKey||e.metaKey)) return go(r, c+1);
     });
