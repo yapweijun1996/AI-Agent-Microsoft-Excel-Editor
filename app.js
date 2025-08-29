@@ -1275,12 +1275,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== Hamburger menu toggle =====
     const hamburgerBtn = document.getElementById('hamburgerBtn');
     const headerNav = document.getElementById('headerNav');
-    
+
     if (hamburgerBtn && headerNav) {
+      headerNav.setAttribute('aria-expanded', 'false');
       hamburgerBtn.addEventListener('click', (e) => {
         e.preventDefault();
         const isOpen = headerNav.classList.contains('open');
         headerNav.classList.toggle('open', !isOpen);
+        headerNav.setAttribute('aria-expanded', (!isOpen).toString());
         hamburgerBtn.setAttribute('aria-expanded', (!isOpen).toString());
         hamburgerBtn.classList.toggle('active', !isOpen);
       });
@@ -1289,6 +1291,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.addEventListener('click', (e) => {
         if (!e.target.closest('header')) {
           headerNav.classList.remove('open');
+          headerNav.setAttribute('aria-expanded', 'false');
           hamburgerBtn.setAttribute('aria-expanded', 'false');
           hamburgerBtn.classList.remove('active');
         }
@@ -1298,6 +1301,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && headerNav.classList.contains('open')) {
           headerNav.classList.remove('open');
+          headerNav.setAttribute('aria-expanded', 'false');
           hamburgerBtn.setAttribute('aria-expanded', 'false');
           hamburgerBtn.classList.remove('active');
         }
