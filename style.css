@@ -14,7 +14,6 @@
   button[aria-pressed="true"]{background:var(--sel);box-shadow:inset 0 0 0 1px var(--accent)}
   .btn-file{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:.5rem}
   .btn-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
-  .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-left:auto}
 
   #formulaBar{flex:1;background:#fff;border:1px solid #dadce0;border-radius:4px;padding:.4rem;color:var(--text)}
   .wrap{padding:12px}
