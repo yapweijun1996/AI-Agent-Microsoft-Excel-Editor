@@ -1000,7 +1000,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          const newText = currentText.slice(0, range.startOffset) + ref + currentText.slice(range.endOffset);
+          // Prevent replacing the leading '=' when caret is before it
+          const start = Math.max(1, range.startOffset);
+          const end = Math.max(1, range.endOffset);
+          const newText = currentText.slice(0, start) + ref + currentText.slice(end);
           el.textContent = newText;
 
           // Update data and formula bar
@@ -1008,12 +1011,12 @@ document.addEventListener('DOMContentLoaded', () => {
           formulaBar.value = newText;
 
           // Select the inserted reference so subsequent arrow presses replace it
-          const start = range.startOffset;
-          const end = start + ref.length;
+          const selStart = start;
+          const selEnd = selStart + ref.length;
           const textNode = el.firstChild || el;
           const newRange = document.createRange();
-          newRange.setStart(textNode, start);
-          newRange.setEnd(textNode, Math.min(end, textNode.textContent?.length || 0));
+          newRange.setStart(textNode, selStart);
+          newRange.setEnd(textNode, Math.min(selEnd, textNode.textContent?.length || 0));
           selection.removeAllRanges();
           selection.addRange(newRange);
 
