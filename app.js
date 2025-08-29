@@ -1002,6 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
               }
             }
             // Allow caret navigation horizontally by deactivating the virtual cursor
+
             formulaVirtualCursor.active = false;
           } else {
             // Vertical edges: keep focus in cell to avoid row header selection
