@@ -413,6 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
         formulaBar.dataset.r = r;
         formulaBar.dataset.c = c;
         if(fillColorInput) fillColorInput.value = cell.bgColor || '#ffffff';
+        if(boldBtn) boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
+        if(italicBtn) italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
 
         // Highlight row/column headers for the active cell
         if (typeof lastHeader !== 'undefined') {
@@ -708,6 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const {r,c} = activeCell;
         const cell = data[r][c];
         cell.bold = !cell.bold;
+        boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
         const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
         if(el) applyCellStyles(el, cell);
       });
@@ -715,6 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const {r,c} = activeCell;
         const cell = data[r][c];
         cell.italic = !cell.italic;
+        italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
         const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
         if(el) applyCellStyles(el, cell);
       });
