@@ -50,8 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
         tab.appendChild(close);
         sheetTabs.appendChild(tab);
       });
-      const add=document.createElement('div');
+      const add=document.createElement('button');
       add.className='sheetTab add';
+      add.type='button';
+      add.setAttribute('aria-label','Add new sheet');
       add.textContent='+';
       sheetTabs.appendChild(add);
     }
