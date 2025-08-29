@@ -975,35 +975,57 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Excel-like formula navigation: insert cell references when editing formulas
       const insertCellRef = (deltaR, deltaC) => {
+        // Compute target location before clamping
+        const targetR = formulaVirtualCursor.r + deltaR;
+        const targetC = formulaVirtualCursor.c + deltaC;
+
+        const newR = Math.max(0, Math.min(rows - 1, targetR));
+        const newC = Math.max(0, Math.min(cols - 1, targetC));
+
+        // If clamping results in no movement, handle edges specially
+        if (newR === formulaVirtualCursor.r && newC === formulaVirtualCursor.c) {
+          // Horizontal edges: allow caret navigation and exit formula mode
+          if (deltaC !== 0) {
+            formulaVirtualCursor.active = false;
+          } else {
+            // Vertical edges: keep focus in cell to avoid row header selection
+            e.preventDefault();
+          }
+          return;
+        }
+
         e.preventDefault();
-        
+
         // Move virtual cursor
-        formulaVirtualCursor.r = Math.max(0, Math.min(rows-1, formulaVirtualCursor.r + deltaR));
-        formulaVirtualCursor.c = Math.max(0, Math.min(cols-1, formulaVirtualCursor.c + deltaC));
-        
+        formulaVirtualCursor.r = newR;
+        formulaVirtualCursor.c = newC;
+
         const ref = colLabel(formulaVirtualCursor.c) + (formulaVirtualCursor.r + 1);
         const currentText = el.textContent;
         const selection = window.getSelection();
-        
+
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          const newText = currentText.slice(0, range.startOffset) + ref + currentText.slice(range.endOffset);
+          // Prevent replacing the leading '=' when caret is before it
+          const start = Math.max(1, range.startOffset);
+          const end = Math.max(1, range.endOffset);
+          const newText = currentText.slice(0, start) + ref + currentText.slice(end);
           el.textContent = newText;
-          
+
           // Update data and formula bar
           data[r][c].value = newText;
           formulaBar.value = newText;
-          
+
           // Select the inserted reference so subsequent arrow presses replace it
-          const start = range.startOffset;
-          const end = start + ref.length;
+          const selStart = start;
+          const selEnd = selStart + ref.length;
           const textNode = el.firstChild || el;
           const newRange = document.createRange();
-          newRange.setStart(textNode, start);
-          newRange.setEnd(textNode, Math.min(end, textNode.textContent?.length || 0));
+          newRange.setStart(textNode, selStart);
+          newRange.setEnd(textNode, Math.min(selEnd, textNode.textContent?.length || 0));
           selection.removeAllRanges();
           selection.addRange(newRange);
-          
+
           recalc();
         }
       };
