@@ -39,6 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sheet tab helpers
     function renderTabs(){
       sheetTabs.innerHTML='';
+      const add=document.createElement('button');
+      add.className='sheetTab add';
+      add.type='button';
+      add.setAttribute('aria-label','Add new sheet');
+      add.textContent='+';
+      sheetTabs.appendChild(add);
       sheets.forEach((s,i)=>{
         const tab=document.createElement('button');
         tab.type='button';
@@ -54,12 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         sheetTabs.appendChild(tab);
       });
-      const add=document.createElement('button');
-      add.className='sheetTab add';
-      add.type='button';
-      add.setAttribute('aria-label','Add new sheet');
-      add.textContent='+';
-      sheetTabs.appendChild(add);
     }
     function saveActiveState(){
       const s=sheets[activeSheetIndex];
