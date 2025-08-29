@@ -422,6 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if(boldBtn) boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
         if(italicBtn) italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
 
+        // Highlight the active cell even when focus moves elsewhere
+        tbody.querySelector('.cell.active')?.classList.remove('active');
+        const activeEl = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        activeEl?.classList.add('active');
+
         // Highlight row/column headers for the active cell
         if (typeof lastHeader !== 'undefined') {
           if (lastHeader.r >= 0) {
