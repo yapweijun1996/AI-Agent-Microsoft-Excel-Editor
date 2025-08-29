@@ -1,5 +1,6 @@
   :root { --bg:#0b1020; --panel:#121932; --grid:#0f1530; --muted:#9fb0d0; --text:#e8eeff; --accent:#5ea0ff; --sel:#24325e; --err:#3b0f1a; --errBorder:#ff5577; }
   *{box-sizing:border-box}
+  .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Arial}
   header{display:flex;gap:.5rem;align-items:center;padding:.75rem;border-bottom:1px solid #1b254b;background:linear-gradient(180deg,var(--panel),#0f1734)}
   header h1{font-size:16px;margin:0 1rem 0 0;opacity:.9;font-weight:600;letter-spacing:.2px}
