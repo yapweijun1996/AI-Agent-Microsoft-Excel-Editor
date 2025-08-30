@@ -27,8 +27,42 @@ document.addEventListener('DOMContentLoaded', () => {
       let copyOrigin = null; // track source cell for copy/paste
       let activeCell = {r:0, c:0};
       let lastHeader = {r:-1, c:-1};
+      let selectionRange = null;
+      let anchorCell = {r:0, c:0};
+      let dragging = false;
+      let isShiftSelecting = false;
       const undoStack = [];
       const redoStack = [];
+
+      function clearSelection(){
+        tbody.querySelectorAll('.cell.selected').forEach(el=>el.classList.remove('selected'));
+        selectionRange = null;
+      }
+
+      function selectRange(r1,c1,r2,c2){
+        clearSelection();
+        const rStart = Math.min(r1,r2), rEnd = Math.max(r1,r2);
+        const cStart = Math.min(c1,c2), cEnd = Math.max(c1,c2);
+        for(let r=rStart;r<=rEnd;r++){
+          for(let c=cStart;c<=cEnd;c++){
+            const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+            el?.classList.add('selected');
+          }
+        }
+        selectionRange = {r1:rStart,c1:cStart,r2:rEnd,c2:cEnd};
+      }
+
+      function forEachSelectedCell(fn){
+        if(selectionRange){
+          for(let r=selectionRange.r1;r<=selectionRange.r2;r++){
+            for(let c=selectionRange.c1;c<=selectionRange.c2;c++){
+              fn(r,c);
+            }
+          }
+        }else{
+          const {r,c}=activeCell; fn(r,c);
+        }
+      }
 
     // Error map: key "r,c" -> message
     const errMap = new Map();
@@ -398,6 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
             div.addEventListener('input', onEdit);
             div.addEventListener('blur', onBlurNormalize);
             div.addEventListener('focus', onCellFocus);
+            div.addEventListener('mousedown', onCellMouseDown);
+            div.addEventListener('mouseenter', onCellMouseEnter);
             td.appendChild(div);
             tr.appendChild(td);
           }
@@ -405,27 +441,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         applyErrorDecorations();
         // initial autofit for the newly rendered table
-        autofitColumns();
-        setActiveCell(activeCell.r, activeCell.c);
-      }
+          autofitColumns();
+          setActiveCell(activeCell.r, activeCell.c, false);
+          if(selectionRange) selectRange(selectionRange.r1, selectionRange.c1, selectionRange.r2, selectionRange.c2);
+        }
 
       // Caret helpers for flicker-free refresh
-      function setActiveCell(r,c){
-        r = Math.max(0, Math.min(rows-1, r));
-        c = Math.max(0, Math.min(cols-1, c));
-        activeCell = {r,c};
-        const cell = data[r][c];
-        formulaBar.value = rawValue(r,c);
-        formulaBar.dataset.r = r;
-        formulaBar.dataset.c = c;
-        if(fillColorInput) fillColorInput.value = cell.bgColor || '#ffffff';
-        if(boldBtn) boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
-        if(italicBtn) italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
+        function setActiveCell(r,c,clearSel=true){
+          r = Math.max(0, Math.min(rows-1, r));
+          c = Math.max(0, Math.min(cols-1, c));
+          if(clearSel){
+            anchorCell = {r,c};
+            clearSelection();
+          }
+          activeCell = {r,c};
+          const cell = data[r][c];
+          formulaBar.value = rawValue(r,c);
+          formulaBar.dataset.r = r;
+          formulaBar.dataset.c = c;
+          if(fillColorInput) fillColorInput.value = cell.bgColor || '#ffffff';
+          if(boldBtn) boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
+          if(italicBtn) italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
 
-        // Highlight the active cell even when focus moves elsewhere
-        tbody.querySelector('.cell.active')?.classList.remove('active');
-        const activeEl = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-        activeEl?.classList.add('active');
+          // Highlight the active cell even when focus moves elsewhere
+          tbody.querySelector('.cell.active')?.classList.remove('active');
+          const activeEl = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+          activeEl?.classList.add('active');
+          if(!selectionRange) activeEl?.classList.add('selected');
 
         // Highlight row/column headers for the active cell
         if (typeof lastHeader !== 'undefined') {
@@ -686,10 +728,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
       // Editing
-      function onCellFocus(e){
-        const el = e.currentTarget;
-        setActiveCell(+el.dataset.r, +el.dataset.c);
-      }
+        function onCellFocus(e){
+          if(isShiftSelecting || dragging) return;
+          const el = e.currentTarget;
+          setActiveCell(+el.dataset.r, +el.dataset.c);
+        }
+        function onCellMouseDown(e){
+          const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+          if(e.shiftKey){
+            isShiftSelecting = true;
+            setActiveCell(r,c,false);
+            selectRange(anchorCell.r, anchorCell.c, r, c);
+          }else{
+            dragging = true;
+            setActiveCell(r,c);
+          }
+        }
+        function onCellMouseEnter(e){
+          if(!dragging) return;
+          const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+          setActiveCell(r,c,false);
+          selectRange(anchorCell.r, anchorCell.c, r, c);
+        }
+        document.addEventListener('mouseup', ()=>{dragging=false; isShiftSelecting=false;});
       function onEdit(e){
         const el = e.currentTarget;
         const r = +el.dataset.r, c = +el.dataset.c;
@@ -717,29 +778,35 @@ document.addEventListener('DOMContentLoaded', () => {
         recalc();
       });
 
-      boldBtn?.addEventListener('click', () => {
-        const {r,c} = activeCell;
-        const cell = data[r][c];
-        cell.bold = !cell.bold;
-        boldBtn.setAttribute('aria-pressed', cell.bold ? 'true' : 'false');
-        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-        if(el) applyCellStyles(el, cell);
-      });
-      italicBtn?.addEventListener('click', () => {
-        const {r,c} = activeCell;
-        const cell = data[r][c];
-        cell.italic = !cell.italic;
-        italicBtn.setAttribute('aria-pressed', cell.italic ? 'true' : 'false');
-        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-        if(el) applyCellStyles(el, cell);
-      });
-      fillColorInput?.addEventListener('input', () => {
-        const {r,c} = activeCell;
-        const cell = data[r][c];
-        cell.bgColor = fillColorInput.value;
-        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-        if(el) applyCellStyles(el, cell);
-      });
+        boldBtn?.addEventListener('click', () => {
+          const newState = !data[activeCell.r][activeCell.c].bold;
+          boldBtn.setAttribute('aria-pressed', newState ? 'true' : 'false');
+          forEachSelectedCell((r,c)=>{
+            const cell = data[r][c];
+            cell.bold = newState;
+            const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+            if(el) applyCellStyles(el, cell);
+          });
+        });
+        italicBtn?.addEventListener('click', () => {
+          const newState = !data[activeCell.r][activeCell.c].italic;
+          italicBtn.setAttribute('aria-pressed', newState ? 'true' : 'false');
+          forEachSelectedCell((r,c)=>{
+            const cell = data[r][c];
+            cell.italic = newState;
+            const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+            if(el) applyCellStyles(el, cell);
+          });
+        });
+        fillColorInput?.addEventListener('input', () => {
+          const color = fillColorInput.value;
+          forEachSelectedCell((r,c)=>{
+            const cell = data[r][c];
+            cell.bgColor = color;
+            const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+            if(el) applyCellStyles(el, cell);
+          });
+        });
 
       undoBtn?.addEventListener('click', undo);
       redoBtn?.addEventListener('click', redo);
@@ -947,17 +1014,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ===== Keyboard navigation (Enter/Shift+Enter, Tab/Shift+Tab, arrows) =====
-      function focusCell(r,c){
-        r = Math.max(0, Math.min(rows-1, r));
-        c = Math.max(0, Math.min(cols-1, c));
-        const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-        if (el){
-          el.focus();
-          placeCaretEnd(el);
-          el.scrollIntoView({block:'nearest', inline:'nearest'});
+        function focusCell(r,c,clearSel=true){
+          r = Math.max(0, Math.min(rows-1, r));
+          c = Math.max(0, Math.min(cols-1, c));
+          const el = tbody.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+          if (el){
+            el.focus();
+            placeCaretEnd(el);
+            el.scrollIntoView({block:'nearest', inline:'nearest'});
+          }
+          setActiveCell(r,c,clearSel);
         }
-        setActiveCell(r,c);
-      }
     function placeCaretEnd(el){
       const range = document.createRange();
       const node = el.firstChild || el;
@@ -1089,15 +1156,30 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // When formula cursor is inactive, still guard against exiting to row headers
-      if (isEditingFormula && !formulaVirtualCursor.active && e.key === 'ArrowLeft' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-        const sel = window.getSelection();
-        if (sel.rangeCount > 0 && sel.getRangeAt(0).startOffset <= 1) {
+        if (isEditingFormula && !formulaVirtualCursor.active && e.key === 'ArrowLeft' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          const sel = window.getSelection();
+          if (sel.rangeCount > 0 && sel.getRangeAt(0).startOffset <= 1) {
+            e.preventDefault();
+            return;
+          }
+        }
+
+        if(!isEditingFormula && e.shiftKey && !e.ctrlKey && !e.metaKey){
+          let nr = r, nc = c;
+          if(e.key === 'ArrowDown') nr++;
+          else if(e.key === 'ArrowUp') nr--;
+          else if(e.key === 'ArrowLeft') nc--;
+          else if(e.key === 'ArrowRight') nc++;
+          else return;
           e.preventDefault();
+          nr = Math.max(0, Math.min(rows-1, nr));
+          nc = Math.max(0, Math.min(cols-1, nc));
+          focusCell(nr, nc, false);
+          selectRange(anchorCell.r, anchorCell.c, nr, nc);
           return;
         }
-      }
-      
-      // Normal navigation when not editing formulas or with modifiers
+
+        // Normal navigation when not editing formulas or with modifiers
       if (e.key === 'ArrowDown' && !e.shiftKey) return go(r+1, c);
       if (e.key === 'ArrowUp'   && !e.shiftKey) return go(r-1, c);
       if (e.key === 'ArrowLeft' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isEditingFormula){
